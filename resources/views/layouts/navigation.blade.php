@@ -39,6 +39,12 @@
                         </x-nav-link>
                     @endif
 
+                    @if(Auth::check() && (Auth::user()->isAdmin() || Auth::user()->isTeamLeader() || Auth::user()->isSuperAdmin()))
+                        <x-nav-link :href="route('analytics.index')" :active="request()->routeIs('analytics.index')">
+                            {{ __('Analytics') }}
+                        </x-nav-link>
+                    @endif
+
                     @if(Auth::check() && Auth::user()->isSuperAdmin())
                         <x-nav-link :href="route('superadmin.index')" :active="request()->routeIs('superadmin.index')">
                             {{ __('Tenants Portal') }}
@@ -154,6 +160,12 @@
             @if(Auth::check() && (Auth::user()->isAdmin() || Auth::user()->isSuperAdmin()))
                 <x-responsive-nav-link :href="route('settings.index')" :active="request()->routeIs('settings.index')">
                     {{ __('Manage Fields') }}
+                </x-responsive-nav-link>
+            @endif
+
+            @if(Auth::check() && (Auth::user()->isAdmin() || Auth::user()->isTeamLeader() || Auth::user()->isSuperAdmin()))
+                <x-responsive-nav-link :href="route('analytics.index')" :active="request()->routeIs('analytics.index')">
+                    {{ __('Analytics') }}
                 </x-responsive-nav-link>
             @endif
 

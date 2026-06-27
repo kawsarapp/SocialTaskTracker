@@ -182,4 +182,27 @@ class SettingsController extends Controller
         $shift->delete();
         return redirect()->route('settings.index')->with('success', 'Shift deleted successfully!');
     }
+
+    /**
+     * Update Slack and Telegram Webhook Configuration settings.
+     */
+    public function updateWebhookSettings(Request $request)
+    {
+        $this->checkAccess();
+
+        $request->validate([
+            'slack_webhook_url' => 'nullable|url|max:2048',
+            'telegram_bot_token' => 'nullable|string|max:255',
+            'telegram_chat_id' => 'nullable|string|max:255',
+        ]);
+
+        $tenant = Auth::user()->tenant;
+        $tenant->update([
+            'slack_webhook_url' => $request->slack_webhook_url,
+            'telegram_bot_token' => $request->telegram_bot_token,
+            'telegram_chat_id' => $request->telegram_chat_id,
+        ]);
+
+        return redirect()->route('settings.index')->with('success', 'Messaging Webhook settings updated successfully!');
+    }
 }

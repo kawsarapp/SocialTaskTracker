@@ -10,7 +10,7 @@
         </div>
     </x-slot>
 
-    <div class="py-6" x-data="{ showMoreFilters: false }">
+    <div class="py-6" x-data="{ showMoreFilters: false, showModal: false, activeTask: null }">
         <div class="max-w-[1600px] mx-auto sm:px-6 lg:px-8">
             
             <!-- Success Toast -->
@@ -246,12 +246,14 @@
                                     <td class="py-4 px-6 font-semibold text-gray-900 text-sm leading-relaxed animate-fade-in">
                                         <div class="flex items-center gap-2">
                                             <span>{{ $task->title }}</span>
-                                            @if($task->comments_count > 0)
-                                                <a href="{{ route('tasks.edit', $task->id) }}#comments-loop" class="inline-flex items-center gap-0.5 bg-indigo-50 border border-indigo-200 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-indigo-100 transition shadow-sm" title="View feedback and comments">
-                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
-                                                    {{ $task->comments_count }}
-                                                </a>
-                                            @endif
+                                            <div id="comment-badge-container-{{ $task->id }}" class="inline-flex">
+                                                @if($task->comments_count > 0)
+                                                    <a href="{{ route('tasks.edit', $task->id) }}#comments-loop" class="inline-flex items-center gap-0.5 bg-indigo-50 border border-indigo-200 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-indigo-100 transition shadow-sm" title="View feedback and comments">
+                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                                                        <span id="comment-badge-count-{{ $task->id }}">{{ $task->comments_count }}</span>
+                                                    </a>
+                                                @endif
+                                            </div>
                                         </div>
                                     </td>
                                     
@@ -344,6 +346,39 @@
                                     <!-- Actions (Edit/Delete) -->
                                     <td class="py-4 px-4 text-center">
                                         <div class="flex items-center justify-center gap-1.5">
+                                            <!-- View Details Button -->
+                                            <button type="button" 
+                                                    @click="activeTask = { 
+                                                        id: {{ $task->id }}, 
+                                                        title: '{{ addslashes($task->title) }}', 
+                                                        taskType: '{{ $task->taskType->name }}', 
+                                                        taskColor: '{{ $task->taskType->color }}', 
+                                                        entryUser: '{{ $task->entryUser->name }}', 
+                                                        date: '{{ $task->on_air_date ? $task->on_air_date->format('d/m/Y') : '' }}', 
+                                                        time: '{{ $task->on_air_time }}', 
+                                                        area: '{{ $task->area->name ?? 'General' }}', 
+                                                        team: '{{ $task->team->name ?? 'General' }}', 
+                                                        scriptWriter: '{{ $task->scriptWriter->name ?? 'Not Assigned' }}', 
+                                                        voiceArtist: '{{ $task->voiceArtist->name ?? 'Not Assigned' }}', 
+                                                        videoEditor: '{{ $task->videoEditor->name ?? 'Not Assigned' }}', 
+                                                        tags: '{{ addslashes($task->tags ?? '') }}', 
+                                                        remarks: '{{ addslashes(str_replace(["\r", "\n", "\'"], [" ", " ", "\\'"], $task->remarks ?? "")) }}', 
+                                                        facebookPage: '{{ $task->facebookPage->name ?? "" }}', 
+                                                        facebookUrl: '{{ $task->facebook_url }}', 
+                                                        youtubeChannel: '{{ $task->youtubeChannel->name ?? "" }}', 
+                                                        youtubeUrl: '{{ $task->youtube_url }}', 
+                                                        thumbnail: '{{ $task->thumbnail_path ? asset('storage/' . $task->thumbnail_path) : "" }}', 
+                                                        script: '{{ $task->script_path ? asset('storage/' . $task->script_path) : "" }}', 
+                                                        shift: '{{ $task->shift->name ?? "General" }}',
+                                                        editUrl: '{{ route('tasks.edit', $task->id) }}'
+                                                    }; showModal = true" 
+                                                    class="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-1.5 rounded transition"
+                                                    title="View Full Task Details">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                                </svg>
+                                            </button>
                                             @can('update', $task)
                                                 <a href="{{ route('tasks.edit', $task->id) }}" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 p-1.5 rounded transition">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
@@ -382,6 +417,171 @@
                     </div>
                 @endif
 
+            <!-- Beautiful Alpine.js Task Details Modal -->
+            <div x-show="showModal" 
+                 class="fixed inset-0 z-[9999] overflow-y-auto flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 style="display: none;"
+                 @keydown.escape.window="showModal = false">
+                
+                <div class="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-3xl w-full max-h-[90vh] overflow-y-auto transform transition-all scale-100 flex flex-col"
+                     @click.away="showModal = false">
+                    
+                    <!-- Modal Header -->
+                    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-2xl">
+                        <div class="flex items-center gap-2">
+                            <span class="px-2.5 py-1 rounded text-xs font-bold text-slate-800"
+                                  :style="'background-color: ' + (activeTask?.taskColor || '#e2e8f0')"
+                                  x-text="activeTask?.taskType"></span>
+                            <span class="text-xs text-gray-400 font-bold" x-text="'ID: #' + activeTask?.id"></span>
+                        </div>
+                        <button @click="showModal = false" class="text-gray-400 hover:text-gray-600 font-bold text-2xl focus:outline-none">&times;</button>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div class="p-6 space-y-6 flex-1">
+                        <!-- Title -->
+                        <div>
+                            <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Task Title</h4>
+                            <p class="text-lg font-bold text-gray-900 leading-snug" x-text="activeTask?.title"></p>
+                        </div>
+
+                        <!-- 2 Column Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-100 pt-6">
+                            <!-- Left Column -->
+                            <div class="space-y-4">
+                                <div>
+                                    <span class="text-xs font-bold text-gray-400 block mb-1">Shift / Group</span>
+                                    <span class="inline-flex bg-indigo-50 border border-indigo-100 text-indigo-700 font-semibold px-2 py-0.5 rounded text-xs" x-text="activeTask?.shift"></span>
+                                </div>
+                                <div>
+                                    <span class="text-xs font-bold text-gray-400 block mb-1">On Air Date & Time</span>
+                                    <span class="text-sm font-semibold text-gray-800" x-text="(activeTask?.date || '') + ' at ' + (activeTask?.time || '')"></span>
+                                </div>
+                                <div>
+                                    <span class="text-xs font-bold text-gray-400 block mb-1">Area / Source</span>
+                                    <span class="text-sm font-semibold text-gray-800" x-text="activeTask?.area"></span>
+                                </div>
+                                <div>
+                                    <span class="text-xs font-bold text-gray-400 block mb-1">Team</span>
+                                    <span class="text-sm font-semibold text-gray-800" x-text="activeTask?.team"></span>
+                                </div>
+                                <div>
+                                    <span class="text-xs font-bold text-gray-400 block mb-1">Tags</span>
+                                    <span class="text-xs font-semibold text-emerald-600" x-text="activeTask?.tags || '-'"></span>
+                                </div>
+                            </div>
+
+                            <!-- Right Column -->
+                            <div class="space-y-4">
+                                <div>
+                                    <span class="text-xs font-bold text-gray-400 block mb-1">Assigned Staff Members</span>
+                                    <div class="space-y-1.5 text-xs">
+                                        <div class="flex justify-between border-b border-gray-50 pb-1">
+                                            <span class="text-gray-500">Script:</span>
+                                            <span class="font-bold text-gray-800" x-text="activeTask?.scriptWriter"></span>
+                                        </div>
+                                        <div class="flex justify-between border-b border-gray-50 pb-1">
+                                            <span class="text-gray-500">Voiceover:</span>
+                                            <span class="font-bold text-gray-800" x-text="activeTask?.voiceArtist"></span>
+                                        </div>
+                                        <div class="flex justify-between pb-0.5">
+                                            <span class="text-gray-500">Video Edit:</span>
+                                            <span class="font-bold text-gray-800" x-text="activeTask?.videoEditor"></span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <span class="text-xs font-bold text-gray-400 block mb-1">Social Media Links</span>
+                                    <div class="space-y-2 text-xs">
+                                        <!-- Facebook -->
+                                        <div>
+                                            <span class="text-gray-500 block mb-0.5" x-text="'Facebook Page: ' + (activeTask?.facebookPage || 'Pending')"></span>
+                                            <template x-if="activeTask?.facebookUrl">
+                                                <a :href="activeTask.facebookUrl" target="_blank" class="text-blue-600 hover:underline font-bold break-all block" x-text="activeTask.facebookUrl"></a>
+                                            </template>
+                                            <template x-if="!activeTask?.facebookUrl">
+                                                <span class="text-red-500 font-bold uppercase text-[10px]">Pending Upload ✖</span>
+                                            </template>
+                                        </div>
+                                        <!-- YouTube -->
+                                        <div class="pt-1">
+                                            <span class="text-gray-500 block mb-0.5" x-text="'YouTube Channel: ' + (activeTask?.youtubeChannel || 'Pending')"></span>
+                                            <template x-if="activeTask?.youtubeUrl">
+                                                <a :href="activeTask.youtubeUrl" target="_blank" class="text-rose-600 hover:underline font-bold break-all block" x-text="activeTask.youtubeUrl"></a>
+                                            </template>
+                                            <template x-if="!activeTask?.youtubeUrl">
+                                                <span class="text-red-500 font-bold uppercase text-[10px]">Pending Upload ✖</span>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Remarks Section -->
+                        <div class="border-t border-gray-100 pt-6">
+                            <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Remarks</h4>
+                            <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 text-sm text-gray-700 whitespace-pre-line min-h-[60px]" x-text="activeTask?.remarks || 'No remarks provided.'"></div>
+                        </div>
+
+                        <!-- Media Attachments Section (Thumbnails & Scripts) -->
+                        <div class="border-t border-gray-100 pt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Thumbnail -->
+                            <div>
+                                <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Thumbnail Attachment</h4>
+                                <template x-if="activeTask?.thumbnail">
+                                    <div class="border border-gray-100 p-2 rounded-xl bg-slate-50 flex flex-col gap-2">
+                                        <img :src="activeTask.thumbnail" class="w-full h-36 object-cover rounded-lg shadow-sm" alt="Thumbnail Preview">
+                                        <a :href="activeTask.thumbnail" target="_blank" class="text-xs text-center font-bold text-indigo-600 hover:underline">Open Full Image &rarr;</a>
+                                    </div>
+                                </template>
+                                <template x-if="!activeTask?.thumbnail">
+                                    <p class="text-xs text-gray-400 italic">No thumbnail uploaded.</p>
+                                </template>
+                            </div>
+
+                            <!-- Script -->
+                            <div>
+                                <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Script Attachment</h4>
+                                <template x-if="activeTask?.script">
+                                    <div class="border border-gray-100 p-4 rounded-xl bg-slate-50 flex items-center gap-3">
+                                        <svg class="w-10 h-10 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                        <div>
+                                            <p class="text-xs font-bold text-gray-800">Script Document is attached</p>
+                                            <a :href="activeTask.script" download class="text-[11px] font-bold text-indigo-600 hover:underline">Download Script File &darr;</a>
+                                        </div>
+                                    </div>
+                                </template>
+                                <template x-if="!activeTask?.script">
+                                    <p class="text-xs text-gray-400 italic">No script file uploaded.</p>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="px-6 py-4 border-t border-gray-100 flex justify-between items-center bg-gray-50 rounded-b-2xl">
+                        <span class="text-[10px] text-gray-400 font-bold uppercase" x-text="'Logged By: ' + activeTask?.entryUser"></span>
+                        <div class="flex gap-2">
+                            <a :href="activeTask?.editUrl" 
+                               class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-4 rounded-lg shadow transition">
+                                Edit Task
+                            </a>
+                            <button @click="showModal = false" 
+                                    class="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold py-2 px-4 rounded-lg shadow-sm transition">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
             </div>
         </div>
     </div>

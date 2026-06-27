@@ -6,6 +6,7 @@ use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\AnalyticsController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -33,6 +34,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/tasks/fetch-metadata', [TaskController::class, 'fetchMetadata'])->name('tasks.fetch-metadata');
     Route::resource('tasks', TaskController::class);
     Route::post('/tasks/{task}/comments', [CommentController::class, 'store'])->name('tasks.comments.store');
+    Route::get('/tasks/comments/poll', [CommentController::class, 'poll'])->name('tasks.comments.poll');
+    Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
 
     // Tenant Configuration Panel (Admins and Super Admins)
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
@@ -55,6 +58,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/settings/shifts/{shift}', [SettingsController::class, 'destroyShift'])->name('settings.shifts.destroy');
     
     Route::post('/settings/users', [SettingsController::class, 'storeUser'])->name('settings.users.store');
+    Route::post('/settings/webhooks', [SettingsController::class, 'updateWebhookSettings'])->name('settings.webhooks.update');
 
     // Super Admin Portal
     Route::get('/superadmin', [SuperAdminController::class, 'index'])->name('superadmin.index');

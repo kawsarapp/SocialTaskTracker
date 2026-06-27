@@ -234,12 +234,27 @@ class TaskController extends Controller
             'tags' => 'nullable|string|max:255',
             'remarks' => 'nullable|string',
             'shift_id' => 'nullable|exists:shifts,id',
+            'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'script_file' => 'nullable|file|mimes:docx,pdf,txt,doc|max:5120',
         ]);
 
-        Task::create(array_merge($request->all(), [
+        $data = $request->all();
+        $tenantId = Auth::user()->tenant_id;
+
+        if ($request->hasFile('thumbnail')) {
+            $data['thumbnail_path'] = $request->file('thumbnail')->store('tenant_' . $tenantId . '/tasks', 'public');
+        }
+
+        if ($request->hasFile('script_file')) {
+            $data['script_path'] = $request->file('script_file')->store('tenant_' . $tenantId . '/tasks', 'public');
+        }
+
+        $task = Task::create(array_merge($data, [
             'entry_by' => Auth::id(),
             'tenant_id' => Auth::user()->tenant_id,
         ]));
+
+        \App\Services\NotificationService::sendTaskNotification($task, 'created');
 
         return redirect()->route('dashboard')->with('success', 'Task logged successfully!');
     }
@@ -270,8 +285,6 @@ class TaskController extends Controller
      */
     public function update(Request $request, Task $task)
     {
-        Gate::authorize('update', $task);
-
         $request->validate([
             'title' => 'required|string|max:500',
             'task_type_id' => 'required|exists:task_types,id',
@@ -289,9 +302,35 @@ class TaskController extends Controller
             'tags' => 'nullable|string|max:255',
             'remarks' => 'nullable|string',
             'shift_id' => 'nullable|exists:shifts,id',
+            'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'script_file' => 'nullable|file|mimes:docx,pdf,txt,doc|max:5120',
         ]);
 
-        $task->update($request->all());
+        $wasMissingLinks = empty($task->facebook_url) && empty($task->youtube_url);
+
+        $data = $request->all();
+        $tenantId = Auth::user()->tenant_id;
+
+        if ($request->hasFile('thumbnail')) {
+            if ($task->thumbnail_path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($task->thumbnail_path);
+            }
+            $data['thumbnail_path'] = $request->file('thumbnail')->store('tenant_' . $tenantId . '/tasks', 'public');
+        }
+
+        if ($request->hasFile('script_file')) {
+            if ($task->script_path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($task->script_path);
+            }
+            $data['script_path'] = $request->file('script_file')->store('tenant_' . $tenantId . '/tasks', 'public');
+        }
+
+        $task->update($data);
+
+        $nowHasLinks = !empty($task->facebook_url) || !empty($task->youtube_url);
+        if ($wasMissingLinks && $nowHasLinks) {
+            \App\Services\NotificationService::sendTaskNotification($task, 'published');
+        }
 
         return redirect()->route('dashboard')->with('success', 'Task updated successfully!');
     }
@@ -302,6 +341,14 @@ class TaskController extends Controller
     public function destroy(Task $task)
     {
         Gate::authorize('delete', $task);
+
+        // Delete associated files from local public disk
+        if ($task->thumbnail_path) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($task->thumbnail_path);
+        }
+        if ($task->script_path) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($task->script_path);
+        }
 
         $task->delete();
         return redirect()->route('dashboard')->with('success', 'Task deleted successfully!');

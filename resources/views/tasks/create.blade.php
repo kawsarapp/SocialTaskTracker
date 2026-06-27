@@ -17,7 +17,7 @@
 
                 <!-- Form Panel -->
                 <div class="p-8 md:w-3/4">
-                    <form action="{{ route('tasks.store') }}" method="POST">
+                    <form action="{{ route('tasks.store') }}" method="POST" enctype="multipart/form-data">
                         @csrf
 
                         <!-- Title -->
@@ -249,6 +249,28 @@
                             @error('remarks')
                                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                             @enderror
+                        </div>
+
+                        <!-- Media File Uploads -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label for="thumbnail" class="block text-sm font-semibold text-gray-700 mb-2">Thumbnail Upload (Optional)</label>
+                                <input type="file" name="thumbnail" id="thumbnail" accept="image/*" 
+                                    class="w-full border border-gray-200 rounded-lg text-xs p-2 focus:border-indigo-500 focus:ring focus:ring-indigo-100 bg-white">
+                                <p class="text-[10px] text-gray-400 mt-1">Accepts: JPEG, PNG, JPG, GIF, WEBP. Max size: 2MB.</p>
+                                @error('thumbnail')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+                            <div>
+                                <label for="script_file" class="block text-sm font-semibold text-gray-700 mb-2">Script Document (Optional)</label>
+                                <input type="file" name="script_file" id="script_file" accept=".docx,.pdf,.txt,.doc" 
+                                    class="w-full border border-gray-200 rounded-lg text-xs p-2 focus:border-indigo-500 focus:ring focus:ring-indigo-100 bg-white">
+                                <p class="text-[10px] text-gray-400 mt-1">Accepts: DOCX, PDF, TXT, DOC. Max size: 5MB.</p>
+                                @error('script_file')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
                         </div>
 
                         <!-- Submit Button -->

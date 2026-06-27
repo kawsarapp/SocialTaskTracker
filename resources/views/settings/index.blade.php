@@ -73,9 +73,61 @@
                                     </span>
                                 </div>
                             @endforeach
-                        </div>
                     </div>
                 </div>
+
+                <!-- Messaging Webhook Settings Card -->
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-gray-100 p-6 mt-8">
+                    <h3 class="text-base font-bold text-gray-800 mb-2 flex items-center">
+                        <svg class="w-5 h-5 text-indigo-500 me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                        Messaging Webhooks
+                    </h3>
+                    <p class="text-xs text-gray-400 mb-6">Receive real-time automated chat updates on Slack and Telegram when content goes live.</p>
+                    
+                    <form action="{{ route('settings.webhooks.update') }}" method="POST" class="space-y-4">
+                        @csrf
+                        <!-- Slack Webhook -->
+                        <div>
+                            <label for="slack_webhook_url" class="block text-xs font-bold text-gray-500 mb-1">Slack Webhook URL</label>
+                            <input type="url" name="slack_webhook_url" id="slack_webhook_url" 
+                                value="{{ old('slack_webhook_url', Auth::user()->tenant->slack_webhook_url) }}"
+                                placeholder="https://hooks.slack.com/services/..." 
+                                class="w-full border-gray-200 rounded-lg text-xs focus:border-indigo-500 focus:ring focus:ring-indigo-100">
+                            @error('slack_webhook_url')
+                                <p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <!-- Telegram Bot Token -->
+                        <div>
+                            <label for="telegram_bot_token" class="block text-xs font-bold text-gray-500 mb-1">Telegram Bot Token</label>
+                            <input type="text" name="telegram_bot_token" id="telegram_bot_token" 
+                                value="{{ old('telegram_bot_token', Auth::user()->tenant->telegram_bot_token) }}"
+                                placeholder="e.g. 123456789:ABCdefGhI..." 
+                                class="w-full border-gray-200 rounded-lg text-xs focus:border-indigo-500 focus:ring focus:ring-indigo-100">
+                            @error('telegram_bot_token')
+                                <p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <!-- Telegram Chat ID -->
+                        <div>
+                            <label for="telegram_chat_id" class="block text-xs font-bold text-gray-500 mb-1">Telegram Chat ID</label>
+                            <input type="text" name="telegram_chat_id" id="telegram_chat_id" 
+                                value="{{ old('telegram_chat_id', Auth::user()->tenant->telegram_chat_id) }}"
+                                placeholder="e.g. -100123456789" 
+                                class="w-full border-gray-200 rounded-lg text-xs focus:border-indigo-500 focus:ring focus:ring-indigo-100">
+                            @error('telegram_chat_id')
+                                <p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 rounded-lg text-xs shadow transition">
+                            Save Webhook Settings
+                        </button>
+                    </form>
+                </div>
+            </div>
 
                 <!-- Right Side: Config Cards (Dynamic Fields) -->
                 <div class="lg:col-span-2 space-y-8">

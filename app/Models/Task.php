@@ -30,6 +30,8 @@ class Task extends Model
         'remarks',
         'entry_by',
         'shift_id',
+        'thumbnail_path',
+        'script_path',
     ];
 
     protected $casts = [

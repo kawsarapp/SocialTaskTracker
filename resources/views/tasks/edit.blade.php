@@ -17,7 +17,7 @@
 
                 <!-- Form Panel -->
                 <div class="p-8 md:w-3/4">
-                    <form action="{{ route('tasks.update', $task->id) }}" method="POST">
+                    <form action="{{ route('tasks.update', $task->id) }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         @method('PUT')
 
@@ -249,6 +249,46 @@
                             @enderror
                         </div>
 
+                        <!-- Media File Uploads -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label for="thumbnail" class="block text-sm font-semibold text-gray-700 mb-2">Thumbnail Upload (Optional)</label>
+                                @if($task->thumbnail_path)
+                                    <div class="mb-3 flex items-center gap-3 bg-slate-50 p-2.5 rounded-lg border border-gray-100">
+                                        <img src="{{ asset('storage/' . $task->thumbnail_path) }}" class="w-16 h-10 object-cover rounded shadow" alt="Current Thumbnail">
+                                        <div>
+                                            <p class="text-[10px] text-gray-400 font-bold uppercase">Current File</p>
+                                            <a href="{{ asset('storage/' . $task->thumbnail_path) }}" target="_blank" class="text-xs text-indigo-600 hover:underline truncate max-w-[150px] block">View Image</a>
+                                        </div>
+                                    </div>
+                                @endif
+                                <input type="file" name="thumbnail" id="thumbnail" accept="image/*" 
+                                    class="w-full border border-gray-200 rounded-lg text-xs p-2 focus:border-indigo-500 focus:ring focus:ring-indigo-100 bg-white">
+                                <p class="text-[10px] text-gray-400 mt-1">Accepts: JPEG, PNG, JPG, GIF, WEBP. Max size: 2MB.</p>
+                                @error('thumbnail')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+                            <div>
+                                <label for="script_file" class="block text-sm font-semibold text-gray-700 mb-2">Script Document (Optional)</label>
+                                @if($task->script_path)
+                                    <div class="mb-3 flex items-center gap-3 bg-slate-50 p-2.5 rounded-lg border border-gray-100">
+                                        <svg class="w-8 h-8 text-indigo-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                        <div class="truncate">
+                                            <p class="text-[10px] text-gray-400 font-bold uppercase">Current Script</p>
+                                            <a href="{{ asset('storage/' . $task->script_path) }}" download class="text-xs text-indigo-600 hover:underline truncate max-w-[150px] block">Download Document</a>
+                                        </div>
+                                    </div>
+                                @endif
+                                <input type="file" name="script_file" id="script_file" accept=".docx,.pdf,.txt,.doc" 
+                                    class="w-full border border-gray-200 rounded-lg text-xs p-2 focus:border-indigo-500 focus:ring focus:ring-indigo-100 bg-white">
+                                <p class="text-[10px] text-gray-400 mt-1">Accepts: DOCX, PDF, TXT, DOC. Max size: 5MB.</p>
+                                @error('script_file')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+                        </div>
+
                         <!-- Submit Button -->
                         <div class="flex justify-between items-center">
                             <a href="{{ route('tasks.index') }}" class="text-sm font-semibold text-gray-500 hover:text-gray-700">Cancel</a>
@@ -284,7 +324,7 @@
                         </form>
 
                         <!-- Comments List -->
-                        <div class="space-y-4 max-h-96 overflow-y-auto pr-1">
+                        <div id="comments-list-container" class="space-y-4 max-h-96 overflow-y-auto pr-1">
                             @php
                                 $comments = $task->comments()->with('user')->orderBy('created_at', 'desc')->get();
                             @endphp
@@ -302,7 +342,7 @@
                                     <p class="text-sm text-gray-700 whitespace-pre-line">{{ $comment->content }}</p>
                                 </div>
                             @empty
-                                <div class="text-center py-6 text-xs text-gray-400">
+                                <div id="no-comments-placeholder" class="text-center py-6 text-xs text-gray-400">
                                     No comments yet. Start the conversation!
                                 </div>
                             @endforelse

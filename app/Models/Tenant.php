@@ -10,7 +10,7 @@ class Tenant extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'slug', 'is_active'];
+    protected $fillable = ['name', 'slug', 'is_active', 'slack_webhook_url', 'telegram_bot_token', 'telegram_chat_id'];
 
     protected $casts = [
         'is_active' => 'boolean',
