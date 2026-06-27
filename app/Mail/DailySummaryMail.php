@@ -17,17 +17,21 @@ class DailySummaryMail extends Mailable
     public $stats;
     public $staffStats;
     public $pendingLinks;
+    public $leaves;
+    public $shiftStats;
 
     /**
      * Create a new message instance.
      */
-    public function __construct($tenantName, $date, $stats, $staffStats, $pendingLinks)
+    public function __construct($tenantName, $date, $stats, $staffStats, $pendingLinks, $leaves = [], $shiftStats = [])
     {
         $this->tenantName = $tenantName;
         $this->date = $date;
         $this->stats = $stats;
         $this->staffStats = $staffStats;
         $this->pendingLinks = $pendingLinks;
+        $this->leaves = $leaves;
+        $this->shiftStats = $shiftStats;
     }
 
     /**

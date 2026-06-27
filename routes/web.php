@@ -4,6 +4,8 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\TaskController;
+use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\CommentController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -21,9 +23,16 @@ Route::middleware(['auth'])->group(function () {
         return redirect()->route('tasks.index');
     })->name('dashboard');
 
+    // Attendance Management
+    Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn'])->name('attendance.check-in');
+    Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut'])->name('attendance.check-out');
+    Route::post('/settings/attendance/leave', [AttendanceController::class, 'storeLeave'])->name('settings.attendance.leave');
+
     // Task Management
+    Route::get('/calendar', [TaskController::class, 'calendar'])->name('tasks.calendar');
     Route::get('/tasks/fetch-metadata', [TaskController::class, 'fetchMetadata'])->name('tasks.fetch-metadata');
     Route::resource('tasks', TaskController::class);
+    Route::post('/tasks/{task}/comments', [CommentController::class, 'store'])->name('tasks.comments.store');
 
     // Tenant Configuration Panel (Admins and Super Admins)
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
@@ -41,6 +50,9 @@ Route::middleware(['auth'])->group(function () {
     
     Route::post('/settings/teams', [SettingsController::class, 'storeTeam'])->name('settings.teams.store');
     Route::delete('/settings/teams/{team}', [SettingsController::class, 'destroyTeam'])->name('settings.teams.destroy');
+    
+    Route::post('/settings/shifts', [SettingsController::class, 'storeShift'])->name('settings.shifts.store');
+    Route::delete('/settings/shifts/{shift}', [SettingsController::class, 'destroyShift'])->name('settings.shifts.destroy');
     
     Route::post('/settings/users', [SettingsController::class, 'storeUser'])->name('settings.users.store');
 

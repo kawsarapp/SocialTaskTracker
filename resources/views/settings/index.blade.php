@@ -183,25 +183,180 @@
                         </div>
                     </div>
 
-                    <!-- Row 3: Areas / Locations -->
+                    <!-- Row 3: Areas & Shifts -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <!-- Areas -->
+                        <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-gray-100 p-6">
+                            <h3 class="font-bold text-gray-800 text-base mb-6">Areas / News Sources</h3>
+                            <form action="{{ route('settings.areas.store') }}" method="POST" class="flex gap-2 mb-4">
+                                @csrf
+                                <input type="text" name="name" required placeholder="Area/Source Name" class="flex-1 border-gray-200 rounded-lg text-sm focus:ring focus:ring-indigo-100">
+                                <button type="submit" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition">Add</button>
+                            </form>
+                            <div class="space-y-2 max-h-60 overflow-y-auto">
+                                @forelse($areas as $area)
+                                    <div class="flex justify-between items-center bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                                        <span class="text-sm font-semibold text-gray-700">{{ $area->name }}</span>
+                                        <form action="{{ route('settings.areas.destroy', $area->id) }}" method="POST">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" class="text-gray-400 hover:text-red-500 text-sm font-bold">&times;</button>
+                                        </form>
+                                    </div>
+                                @empty
+                                    <p class="text-xs text-gray-400">No areas configured.</p>
+                                @endforelse
+                            </div>
+                        </div>
+
+                        <!-- Shifts -->
+                        <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-gray-100 p-6">
+                            <h3 class="font-bold text-gray-800 text-base mb-6">Shifts</h3>
+                            <form action="{{ route('settings.shifts.store') }}" method="POST" class="flex gap-2 mb-4">
+                                @csrf
+                                <input type="text" name="name" required placeholder="Shift Name (e.g. Morning)" class="flex-1 border-gray-200 rounded-lg text-sm focus:ring focus:ring-indigo-100">
+                                <button type="submit" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition">Add</button>
+                            </form>
+                            <div class="space-y-2 max-h-60 overflow-y-auto">
+                                @forelse($shifts as $shift)
+                                    <div class="flex justify-between items-center bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                                        <span class="text-sm font-semibold text-gray-700">{{ $shift->name }}</span>
+                                        <form action="{{ route('settings.shifts.destroy', $shift->id) }}" method="POST">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" class="text-gray-400 hover:text-red-500 text-sm font-bold">&times;</button>
+                                        </form>
+                                    </div>
+                                @empty
+                                    <p class="text-xs text-gray-400">No shifts configured.</p>
+                                @endforelse
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Leave & Attendance Management -->
                     <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-gray-100 p-6">
-                        <h3 class="font-bold text-gray-800 text-base mb-6">Areas / News Sources</h3>
-                        <form action="{{ route('settings.areas.store') }}" method="POST" class="flex gap-2 mb-4">
-                            @csrf
-                            <input type="text" name="name" required placeholder="Area/Source Name (e.g. Dhaka Office)" class="flex-1 border-gray-200 rounded-lg text-sm focus:ring focus:ring-indigo-100">
-                            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition">Add Area</button>
-                        </form>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto pt-2">
-                            @forelse($areas as $area)
-                                <div class="flex justify-between items-center bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
-                                    <span class="text-sm font-semibold text-gray-700">{{ $area->name }}</span>
-                                    <form action="{{ route('settings.areas.destroy', $area->id) }}" method="POST">
-                                        @csrf @method('DELETE')
-                                        <button type="submit" class="text-gray-400 hover:text-red-500 text-sm font-bold">&times;</button>
-                                    </form>
+                        <h3 class="font-bold text-gray-800 text-base mb-4 flex items-center">
+                            <svg class="w-5 h-5 text-indigo-500 me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            Attendance & Leave Management
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <!-- Leave Request Form -->
+                            <div>
+                                <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Mark Staff on Leave</h4>
+                                <form action="{{ route('settings.attendance.leave') }}" method="POST" class="space-y-4 bg-slate-50 p-4 rounded-lg border border-gray-100">
+                                    @csrf
+                                    <div>
+                                        <label for="leave_user_id" class="block text-xs font-bold text-gray-500 mb-1">Select Staff</label>
+                                        <select name="user_id" id="leave_user_id" required class="w-full border-gray-200 rounded-lg text-xs bg-white focus:ring focus:ring-indigo-100">
+                                            <option value="">Choose Staff</option>
+                                            @foreach($users as $staff)
+                                                @if($staff->role !== 'super_admin')
+                                                    <option value="{{ $staff->id }}">{{ $staff->name }} ({{ ucfirst($staff->role) }})</option>
+                                                @endif
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="leave_date" class="block text-xs font-bold text-gray-500 mb-1">Date</label>
+                                        <input type="date" name="date" id="leave_date" required value="{{ date('Y-m-d') }}" class="w-full border-gray-200 rounded-lg text-xs bg-white focus:ring focus:ring-indigo-100">
+                                    </div>
+                                    <div>
+                                        <label for="leave_remarks" class="block text-xs font-bold text-gray-500 mb-1">Reason / Remarks</label>
+                                        <input type="text" name="remarks" id="leave_remarks" required placeholder="e.g. Sick Leave, Annual Leave" class="w-full border-gray-200 rounded-lg text-xs bg-white focus:ring focus:ring-indigo-100">
+                                    </div>
+                                    <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 rounded-lg text-xs shadow transition">
+                                        Mark as On Leave
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- Attendance Roster Today -->
+                            <div>
+                                @php
+                                    $todayAttendances = \App\Models\Attendance::where('date', now()->format('Y-m-d'))->get()->keyBy('user_id');
+                                @endphp
+                                <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Today's Attendance Roster</h4>
+                                <div class="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                                    @forelse($users as $staff)
+                                        @if($staff->role !== 'super_admin')
+                                            @php
+                                                $att = $todayAttendances->get($staff->id);
+                                            @endphp
+                                            <div class="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border border-gray-100 text-xs">
+                                                <div>
+                                                    <span class="font-bold text-gray-800">{{ $staff->name }}</span>
+                                                    <span class="text-gray-400"> ({{ ucfirst($staff->role) }})</span>
+                                                </div>
+                                                <div>
+                                                    @if($att)
+                                                        @if($att->status === 'leave')
+                                                            <span class="inline-flex px-2 py-0.5 font-bold rounded bg-amber-50 border border-amber-200 text-amber-800" title="{{ $att->remarks }}">
+                                                                🌴 On Leave
+                                                            </span>
+                                                        @else
+                                                            <span class="inline-flex px-2 py-0.5 font-bold rounded bg-emerald-50 border border-emerald-200 text-emerald-800" title="Check-in: {{ $att->check_in ? $att->check_in->format('h:i A') : '-' }}">
+                                                                ✓ Present
+                                                            </span>
+                                                        @endif
+                                                    @else
+                                                        <span class="inline-flex px-2 py-0.5 font-bold rounded bg-rose-50 border border-rose-200 text-rose-800">
+                                                            ✖ Absent
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        @endif
+                                    @empty
+                                        <p class="text-xs text-gray-400">No staff members registered.</p>
+                                    @endforelse
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 4: Audit Activity Logs -->
+                    <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-gray-100 p-6">
+                        <h3 class="font-bold text-gray-800 text-base mb-2">Audit Logs & Revision History</h3>
+                        <p class="text-xs text-gray-400 mb-6">Recent task creations, edits, and deletions logged for accountability.</p>
+                        
+                        <div class="space-y-4 max-h-96 overflow-y-auto pr-1">
+                            @forelse($activityLogs as $log)
+                                <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col gap-1.5">
+                                    <div class="flex justify-between items-start">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <span class="font-bold text-gray-800 text-sm">
+                                                {{ $log->user->name ?? 'System' }}
+                                            </span>
+                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase 
+                                                {{ $log->action === 'created' ? 'bg-green-100 text-green-800' : ($log->action === 'updated' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800') }}">
+                                                {{ $log->action }}
+                                            </span>
+                                            <span class="text-xs text-gray-500 font-semibold">
+                                                Task ID: #{{ $log->task_id }} &ldquo;{{ $log->task_title }}&rdquo;
+                                            </span>
+                                        </div>
+                                        <span class="text-xs text-gray-400 font-semibold">
+                                            {{ $log->created_at->diffForHumans() }}
+                                        </span>
+                                    </div>
+                                    
+                                    @if($log->action === 'updated' && is_array($log->changes))
+                                        <div class="mt-1 text-xs space-y-1 bg-white p-3 rounded-lg border border-gray-100">
+                                            @foreach($log->changes as $field => $diff)
+                                                <div class="flex flex-wrap items-center gap-1.5 text-gray-600">
+                                                    <span class="font-semibold text-gray-500">{{ ucfirst(str_replace('_', ' ', $field)) }}:</span>
+                                                    <span class="line-through text-red-500 bg-red-50 px-1 rounded">{{ is_scalar($diff['old']) ? $diff['old'] : 'empty' }}</span>
+                                                    <span class="text-gray-400">&rarr;</span>
+                                                    <span class="text-green-600 font-bold bg-green-50 px-1 rounded">{{ is_scalar($diff['new']) ? $diff['new'] : 'empty' }}</span>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @endif
                                 </div>
                             @empty
-                                <div class="col-span-2 text-center text-xs text-gray-400 py-4">No areas configured.</div>
+                                <div class="text-center py-8 text-xs text-gray-400">
+                                    No activity logs found.
+                                </div>
                             @endforelse
                         </div>
                     </div>

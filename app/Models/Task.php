@@ -29,11 +29,78 @@ class Task extends Model
         'tags',
         'remarks',
         'entry_by',
+        'shift_id',
     ];
 
     protected $casts = [
         'on_air_date' => 'date',
     ];
+
+    protected static function booted()
+    {
+        // 1. Task Created Hook
+        static::created(function ($task) {
+            $userId = \Illuminate\Support\Facades\Auth::id();
+            $tenantId = $task->tenant_id ?? (\Illuminate\Support\Facades\Auth::user()->tenant_id ?? null);
+            if ($tenantId) {
+                \App\Models\ActivityLog::create([
+                    'tenant_id' => $tenantId,
+                    'user_id' => $userId,
+                    'action' => 'created',
+                    'task_id' => $task->id,
+                    'task_title' => $task->title,
+                    'changes' => null,
+                ]);
+            }
+        });
+
+        // 2. Task Updating Hook (to catch changed attributes before save)
+        static::updating(function ($task) {
+            $userId = \Illuminate\Support\Facades\Auth::id();
+            $tenantId = $task->tenant_id ?? (\Illuminate\Support\Facades\Auth::user()->tenant_id ?? null);
+
+            if ($tenantId) {
+                $changes = [];
+                foreach ($task->getDirty() as $key => $newValue) {
+                    if (in_array($key, ['created_at', 'updated_at'])) {
+                        continue;
+                    }
+                    $changes[$key] = [
+                        'old' => $task->getOriginal($key),
+                        'new' => $newValue,
+                    ];
+                }
+
+                if (!empty($changes)) {
+                    \App\Models\ActivityLog::create([
+                        'tenant_id' => $tenantId,
+                        'user_id' => $userId,
+                        'action' => 'updated',
+                        'task_id' => $task->id,
+                        'task_title' => $task->title,
+                        'changes' => $changes,
+                    ]);
+                }
+            }
+        });
+
+        // 3. Task Deleted Hook
+        static::deleted(function ($task) {
+            $userId = \Illuminate\Support\Facades\Auth::id();
+            $tenantId = $task->tenant_id ?? (\Illuminate\Support\Facades\Auth::user()->tenant_id ?? null);
+
+            if ($tenantId) {
+                \App\Models\ActivityLog::create([
+                    'tenant_id' => $tenantId,
+                    'user_id' => $userId,
+                    'action' => 'deleted',
+                    'task_id' => $task->id,
+                    'task_title' => $task->title,
+                    'changes' => null,
+                ]);
+            }
+        });
+    }
 
     public function taskType(): BelongsTo
     {
@@ -78,5 +145,15 @@ class Task extends Model
     public function entryUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'entry_by');
+    }
+
+    public function shift(): BelongsTo
+    {
+        return $this->belongsTo(Shift::class);
+    }
+
+    public function comments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Comment::class);
     }
 }

@@ -171,6 +171,21 @@
                             @enderror
                         </div>
 
+                        <!-- Shift Assignment -->
+                        <div class="mb-6">
+                            <label for="shift_id" class="block text-sm font-semibold text-gray-700 mb-2">Shift</label>
+                            <select name="shift_id" id="shift_id" 
+                                class="w-full border-gray-200 rounded-lg text-sm p-2.5 focus:border-indigo-500 focus:ring focus:ring-indigo-100">
+                                <option value="">Select Shift</option>
+                                @foreach($shifts as $shift)
+                                    <option value="{{ $shift->id }}">{{ $shift->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('shift_id')
+                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
                         <!-- Staff Roles (Script, Voice, Video Edit) -->
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                             <div>

@@ -169,6 +169,21 @@
                             @enderror
                         </div>
 
+                        <!-- Shift Assignment -->
+                        <div class="mb-6">
+                            <label for="shift_id" class="block text-sm font-semibold text-gray-700 mb-2">Shift</label>
+                            <select name="shift_id" id="shift_id" 
+                                class="w-full border-gray-200 rounded-lg text-sm p-2.5 focus:border-indigo-500 focus:ring focus:ring-indigo-100">
+                                <option value="">Select Shift</option>
+                                @foreach($shifts as $shift)
+                                    <option value="{{ $shift->id }}" {{ $task->shift_id == $shift->id ? 'selected' : '' }}>{{ $shift->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('shift_id')
+                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
                         <!-- Staff Roles (Script, Voice, Video Edit) -->
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                             <div>
@@ -243,6 +258,56 @@
                         </div>
 
                     </form>
+
+                    <!-- Comments & Collaboration Loop -->
+                    <div class="mt-12 border-t border-gray-100 pt-8">
+                        <h3 class="font-bold text-gray-800 text-lg mb-6 flex items-center">
+                            <svg class="w-5 h-5 text-indigo-500 me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                            Comments & Feedback Loop
+                        </h3>
+
+                        <!-- Add Comment Form -->
+                        <form action="{{ route('tasks.comments.store', $task->id) }}" method="POST" class="mb-6">
+                            @csrf
+                            <div class="mb-3">
+                                <textarea name="content" rows="3" required placeholder="Write feedback, update status, or leave a note..." 
+                                    class="w-full border-gray-200 rounded-lg text-sm p-2.5 focus:border-indigo-500 focus:ring focus:ring-indigo-100"></textarea>
+                                @error('content')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+                            <div class="flex justify-end">
+                                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1.5 px-4 rounded-lg shadow text-xs transition duration-150">
+                                    Post Comment
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Comments List -->
+                        <div class="space-y-4 max-h-96 overflow-y-auto pr-1">
+                            @php
+                                $comments = $task->comments()->with('user')->orderBy('created_at', 'desc')->get();
+                            @endphp
+                            @forelse($comments as $comment)
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-2">
+                                    <div class="flex justify-between items-start">
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-bold text-gray-800 text-sm">{{ $comment->user->name }}</span>
+                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $comment->user->role === 'admin' ? 'bg-purple-100 text-purple-800' : ($comment->user->role === 'team_leader' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800') }}">
+                                                {{ ucfirst($comment->user->role) }}
+                                            </span>
+                                        </div>
+                                        <span class="text-xs text-gray-400 font-semibold">{{ $comment->created_at->diffForHumans() }}</span>
+                                    </div>
+                                    <p class="text-sm text-gray-700 whitespace-pre-line">{{ $comment->content }}</p>
+                                </div>
+                            @empty
+                                <div class="text-center py-6 text-xs text-gray-400">
+                                    No comments yet. Start the conversation!
+                                </div>
+                            @endforelse
+                        </div>
+                    </div>
                 </div>
 
             </div>

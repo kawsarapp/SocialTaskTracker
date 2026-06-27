@@ -42,7 +42,7 @@ class SendDailySummary extends Command
             $tasks = Task::withoutGlobalScopes()
                 ->where('tenant_id', $tenant->id)
                 ->whereDate('on_air_date', $todayStr)
-                ->with(['taskType', 'entryUser', 'scriptWriter', 'voiceArtist', 'videoEditor'])
+                ->with(['taskType', 'entryUser', 'scriptWriter', 'voiceArtist', 'videoEditor', 'shift'])
                 ->get();
                 
             $this->info("Found " . $tasks->count() . " tasks for today.");
@@ -52,6 +52,13 @@ class SendDailySummary extends Command
             foreach ($tasks as $task) {
                 $typeName = $task->taskType->name ?? 'Unknown';
                 $stats[$typeName] = ($stats[$typeName] ?? 0) + 1;
+            }
+
+            // 2.5 Count by Shift
+            $shiftStats = [];
+            foreach ($tasks as $task) {
+                $shiftName = $task->shift->name ?? 'No Shift / General';
+                $shiftStats[$shiftName] = ($shiftStats[$shiftName] ?? 0) + 1;
             }
 
             // 3. Count staff performance
@@ -81,6 +88,16 @@ class SendDailySummary extends Command
                 return empty($task->facebook_url) || empty($task->youtube_url);
             });
 
+            // 4.5 Fetch staff members on leave today
+            $leaves = \App\Models\Attendance::withoutGlobalScopes()
+                ->where('tenant_id', $tenant->id)
+                ->whereDate('date', $todayStr)
+                ->where('status', 'leave')
+                ->with('user')
+                ->get()
+                ->pluck('user.name')
+                ->toArray();
+
             // 5. Gather recipients (Admins and Team Leaders of this organization)
             $recipients = User::withoutGlobalScopes()
                 ->where('tenant_id', $tenant->id)
@@ -97,7 +114,9 @@ class SendDailySummary extends Command
                         date('d/m/Y'),
                         $stats,
                         $staffStats,
-                        $pendingLinks
+                        $pendingLinks,
+                        $leaves,
+                        $shiftStats
                     ));
                     $this->info("Daily Summary Mail sent successfully for {$tenant->name}.");
                 } catch (\Exception $e) {

@@ -20,6 +20,21 @@ The table below shows the total count of content items created and published tod
 
 ---
 
+## 1.5 Work Shift Production Breakdown
+The table below shows the total count of content items created today, grouped by work shifts:
+
+<x-mail::table>
+| Shift Name | Total Tasks |
+| :--- | :---: |
+@forelse($shiftStats as $shift => $count)
+| **{{ $shift }}** | **{{ $count }}** |
+@empty
+| *No shifts logged today* | 0 |
+@endforelse
+</x-mail::table>
+
+---
+
 ## 2. Staff Performance Table
 Below is the breakdown of scripts written, voiceovers recorded, and videos edited by your staff today:
 
@@ -32,6 +47,17 @@ Below is the breakdown of scripts written, voiceovers recorded, and videos edite
 | *No staff activity logged today* | 0 | 0 | 0 |
 @endforelse
 </x-mail::table>
+
+---
+
+## 2.5 🌴 Staff On Leave Today
+The following staff members were marked on leave today:
+
+@forelse($leaves as $leaveName)
+* **{{ $leaveName }}**
+@empty
+* *No staff members were on leave today.*
+@endforelse
 
 ---
 

@@ -9,6 +9,7 @@ use App\Models\TaskType;
 use App\Models\Team;
 use App\Models\User;
 use App\Models\YoutubeChannel;
+use App\Models\Shift;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -120,7 +121,8 @@ class TaskController extends Controller
 
         // Sorting & Pagination
         $perPage = $request->input('per_page', 50);
-        $tasks = $query->orderBy('on_air_date', 'desc')
+        $tasks = $query->withCount('comments')
+                       ->orderBy('on_air_date', 'desc')
                        ->orderBy('on_air_time', 'desc')
                        ->paginate($perPage)
                        ->withQueryString();
@@ -137,6 +139,62 @@ class TaskController extends Controller
     }
 
     /**
+     * Display tasks on a calendar view.
+     */
+    public function calendar()
+    {
+        $tenantId = Auth::user()->tenant_id;
+
+        // Fetch all tenant tasks with relations
+        $tasks = Task::with(['taskType', 'area', 'team', 'scriptWriter', 'voiceArtist', 'videoEditor', 'entryUser'])->get();
+
+        // Format events array for FullCalendar
+        $events = $tasks->map(function ($task) {
+            // Combine on_air_date and on_air_time into a proper ISO datetime if possible
+            $startDateTime = $task->on_air_date->format('Y-m-d');
+            if ($task->on_air_time) {
+                try {
+                    $timeStr = date('H:i:s', strtotime($task->on_air_time));
+                    $startDateTime = $task->on_air_date->format('Y-m-d') . 'T' . $timeStr;
+                } catch (\Exception $e) {
+                    // Fallback to date only
+                }
+            }
+
+            return [
+                'id' => $task->id,
+                'title' => '[' . ($task->taskType->name ?? 'Task') . '] ' . $task->title,
+                'start' => $startDateTime,
+                'color' => $task->taskType->color ?? '#4f46e5', // Theme color or task type color
+                'extendedProps' => [
+                    'title_raw' => $task->title,
+                    'task_type' => $task->taskType->name ?? 'Unknown',
+                    'task_type_color' => $task->taskType->color ?? '#e2e8f0',
+                    'facebook_url' => $task->facebook_url ?? '',
+                    'youtube_url' => $task->youtube_url ?? '',
+                    'facebook_page' => $task->facebookPage->name ?? '',
+                    'youtube_channel' => $task->youtubeChannel->name ?? '',
+                    'on_air_time' => $task->on_air_time ?? '',
+                    'on_air_date' => $task->on_air_date->format('Y-m-d'),
+                    'area' => $task->area->name ?? '',
+                    'team' => $task->team->name ?? '',
+                    'script_by' => $task->scriptWriter->name ?? 'Not Assigned',
+                    'voice_by' => $task->voiceArtist->name ?? 'Not Assigned',
+                    'video_edit_by' => $task->videoEditor->name ?? 'Not Assigned',
+                    'entry_by' => $task->entryUser->name ?? 'Unknown',
+                    'tags' => $task->tags ?? '',
+                    'remarks' => $task->remarks ?? '',
+                    'edit_url' => route('tasks.edit', $task->id),
+                ]
+            ];
+        });
+
+        return view('tasks.calendar', [
+            'eventsJson' => json_encode($events)
+        ]);
+    }
+
+    /**
      * Show the form for creating a new task.
      */
     public function create()
@@ -149,8 +207,9 @@ class TaskController extends Controller
         $areas = Area::all();
         $teams = Team::all();
         $users = User::where('tenant_id', $tenantId)->get(); // All tenant users for dropdown assignments
+        $shifts = Shift::all();
 
-        return view('tasks.create', compact('taskTypes', 'facebookPages', 'youtubeChannels', 'areas', 'teams', 'users'));
+        return view('tasks.create', compact('taskTypes', 'facebookPages', 'youtubeChannels', 'areas', 'teams', 'users', 'shifts'));
     }
 
     /**
@@ -174,6 +233,7 @@ class TaskController extends Controller
             'video_edit_by' => 'nullable|exists:users,id',
             'tags' => 'nullable|string|max:255',
             'remarks' => 'nullable|string',
+            'shift_id' => 'nullable|exists:shifts,id',
         ]);
 
         Task::create(array_merge($request->all(), [
@@ -200,8 +260,9 @@ class TaskController extends Controller
         $areas = Area::all();
         $teams = Team::all();
         $users = User::where('tenant_id', $tenantId)->get();
+        $shifts = Shift::all();
 
-        return view('tasks.edit', compact('task', 'taskTypes', 'facebookPages', 'youtubeChannels', 'areas', 'teams', 'users'));
+        return view('tasks.edit', compact('task', 'taskTypes', 'facebookPages', 'youtubeChannels', 'areas', 'teams', 'users', 'shifts'));
     }
 
     /**
@@ -227,6 +288,7 @@ class TaskController extends Controller
             'video_edit_by' => 'nullable|exists:users,id',
             'tags' => 'nullable|string|max:255',
             'remarks' => 'nullable|string',
+            'shift_id' => 'nullable|exists:shifts,id',
         ]);
 
         $task->update($request->all());

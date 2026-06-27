@@ -21,6 +21,14 @@
                 </div>
             @endif
 
+            <!-- Error Toast -->
+            @if(session('error'))
+                <div class="mb-4 p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg flex items-center shadow-sm">
+                    <svg class="w-5 h-5 me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    <span>{{ session('error') }}</span>
+                </div>
+            @endif
+
             <!-- Scope Tabs -->
             <div class="flex border-b border-gray-200 mb-6 bg-white p-2 rounded-xl border border-gray-100 shadow-sm gap-2">
                 <a href="{{ route('tasks.index', array_merge(request()->except('page'), ['scope' => 'all'])) }}" 
@@ -235,8 +243,16 @@
                                     </td>
                                     
                                     <!-- Title (Bengali/English) -->
-                                    <td class="py-4 px-6 font-semibold text-gray-900 text-sm leading-relaxed">
-                                        {{ $task->title }}
+                                    <td class="py-4 px-6 font-semibold text-gray-900 text-sm leading-relaxed animate-fade-in">
+                                        <div class="flex items-center gap-2">
+                                            <span>{{ $task->title }}</span>
+                                            @if($task->comments_count > 0)
+                                                <a href="{{ route('tasks.edit', $task->id) }}#comments-loop" class="inline-flex items-center gap-0.5 bg-indigo-50 border border-indigo-200 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-indigo-100 transition shadow-sm" title="View feedback and comments">
+                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                                                    {{ $task->comments_count }}
+                                                </a>
+                                            @endif
+                                        </div>
                                     </td>
                                     
                                     <!-- Entry By -->

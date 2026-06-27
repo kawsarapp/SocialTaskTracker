@@ -28,6 +28,9 @@
                         <x-nav-link :href="route('tasks.create')" :active="request()->routeIs('tasks.create')">
                             {{ __('Create Task') }}
                         </x-nav-link>
+                        <x-nav-link :href="route('tasks.calendar')" :active="request()->routeIs('tasks.calendar')">
+                            {{ __('Calendar View') }}
+                        </x-nav-link>
                     @endif
 
                     @if(Auth::check() && (Auth::user()->isAdmin() || Auth::user()->isSuperAdmin()))
@@ -45,7 +48,50 @@
             </div>
 
             <!-- Settings Dropdown -->
-            <div class="hidden sm:flex sm:items-center sm:ms-6">
+            <div class="hidden sm:flex sm:items-center sm:ms-6 gap-3">
+                @php
+                    $todayAttendance = null;
+                    if (Illuminate\Support\Facades\Auth::check() && !Illuminate\Support\Facades\Auth::user()->isSuperAdmin()) {
+                        $todayAttendance = \App\Models\Attendance::where('user_id', Illuminate\Support\Facades\Auth::id())
+                            ->where('date', now()->format('Y-m-d'))
+                            ->first();
+                    }
+                @endphp
+
+                @if(Illuminate\Support\Facades\Auth::check() && !Illuminate\Support\Facades\Auth::user()->isSuperAdmin())
+                    <div class="flex items-center">
+                        @if($todayAttendance === null)
+                            <form action="{{ route('attendance.check-in') }}" method="POST" class="inline-block">
+                                @csrf
+                                <button type="submit" class="inline-flex items-center bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg shadow-sm transition duration-150">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-ping me-1.5"></span>
+                                    Check In
+                                </button>
+                            </form>
+                        @else
+                            <div class="inline-flex items-center text-xs bg-slate-50 border border-gray-200 px-3 py-1.5 rounded-lg gap-2">
+                                @if($todayAttendance->status === 'leave')
+                                    <span class="text-amber-700 font-bold">🌴 On Leave</span>
+                                @else
+                                    <span class="text-emerald-700 font-bold">✓ Checked In ({{ $todayAttendance->check_in->format('h:i A') }})</span>
+                                    @if(!$todayAttendance->check_out)
+                                        <span class="text-gray-300">|</span>
+                                        <form action="{{ route('attendance.check-out') }}" method="POST" class="inline">
+                                            @csrf
+                                            <button type="submit" class="text-rose-600 hover:text-rose-800 font-bold hover:underline focus:outline-none">
+                                                Check Out
+                                            </button>
+                                        </form>
+                                    @else
+                                        <span class="text-gray-300">|</span>
+                                        <span class="text-rose-700 font-bold">Checked Out ({{ $todayAttendance->check_out->format('h:i A') }})</span>
+                                    @endif
+                                @endif
+                            </div>
+                        @endif
+                    </div>
+                @endif
+
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
                         <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150">
@@ -99,6 +145,9 @@
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('tasks.create')" :active="request()->routeIs('tasks.create')">
                     {{ __('Create Task') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('tasks.calendar')" :active="request()->routeIs('tasks.calendar')">
+                    {{ __('Calendar View') }}
                 </x-responsive-nav-link>
             @endif
 

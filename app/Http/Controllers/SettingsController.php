@@ -8,6 +8,8 @@ use App\Models\TaskType;
 use App\Models\Team;
 use App\Models\User;
 use App\Models\YoutubeChannel;
+use App\Models\Shift;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -35,8 +37,10 @@ class SettingsController extends Controller
         $areas = Area::all();
         $teams = Team::all();
         $users = User::where('tenant_id', $tenantId)->get();
+        $shifts = Shift::all();
+        $activityLogs = ActivityLog::with('user')->orderBy('created_at', 'desc')->take(50)->get();
 
-        return view('settings.index', compact('taskTypes', 'facebookPages', 'youtubeChannels', 'areas', 'teams', 'users'));
+        return view('settings.index', compact('taskTypes', 'facebookPages', 'youtubeChannels', 'areas', 'teams', 'users', 'shifts', 'activityLogs'));
     }
 
     // Task Types
@@ -151,5 +155,31 @@ class SettingsController extends Controller
         ]);
 
         return redirect()->route('settings.index')->with('success', 'User/Staff added successfully!');
+    }
+
+    // Shifts
+    public function storeShift(Request $request)
+    {
+        $this->checkAccess();
+        $request->validate([
+            'name' => 'required|string|max:100',
+            'start_time' => 'nullable|string|max:20',
+            'end_time' => 'nullable|string|max:20',
+        ]);
+
+        Shift::create([
+            'name' => $request->name,
+            'start_time' => $request->start_time,
+            'end_time' => $request->end_time,
+        ]);
+
+        return redirect()->route('settings.index')->with('success', 'Shift added successfully!');
+    }
+
+    public function destroyShift(Shift $shift)
+    {
+        $this->checkAccess();
+        $shift->delete();
+        return redirect()->route('settings.index')->with('success', 'Shift deleted successfully!');
     }
 }
