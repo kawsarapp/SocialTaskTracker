@@ -4,9 +4,11 @@
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ __('Social Task Tracker') }}
             </h2>
-            <a href="{{ route('tasks.create') }}" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition duration-150">
-                + Create New Task
-            </a>
+            @if(Auth::user()->hasPermission('create_tasks'))
+                <a href="{{ route('tasks.create') }}" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition duration-150">
+                    + Create New Task
+                </a>
+            @endif
         </div>
     </x-slot>
 
@@ -370,7 +372,8 @@
                                                         thumbnail: '{{ $task->thumbnail_path ? asset('storage/' . $task->thumbnail_path) : "" }}', 
                                                         script: '{{ $task->script_path ? asset('storage/' . $task->script_path) : "" }}', 
                                                         shift: '{{ $task->shift->name ?? "General" }}',
-                                                        editUrl: '{{ route('tasks.edit', $task->id) }}'
+                                                        editUrl: '{{ route('tasks.edit', $task->id) }}',
+                                                        canEdit: {{ Auth::user()->can('update', $task) ? 'true' : 'false' }}
                                                     }; showModal = true" 
                                                     class="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-1.5 rounded transition"
                                                     title="View Full Task Details">
@@ -570,10 +573,12 @@
                     <div class="px-6 py-4 border-t border-gray-100 flex justify-between items-center bg-gray-50 rounded-b-2xl">
                         <span class="text-[10px] text-gray-400 font-bold uppercase" x-text="'Logged By: ' + activeTask?.entryUser"></span>
                         <div class="flex gap-2">
-                            <a :href="activeTask?.editUrl" 
-                               class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-4 rounded-lg shadow transition">
-                                Edit Task
-                            </a>
+                            <template x-if="activeTask?.canEdit">
+                                <a :href="activeTask?.editUrl" 
+                                   class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-4 rounded-lg shadow transition">
+                                    Edit Task
+                                </a>
+                            </template>
                             <button @click="showModal = false" 
                                     class="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold py-2 px-4 rounded-lg shadow-sm transition">
                                 Close

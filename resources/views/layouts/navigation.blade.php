@@ -22,15 +22,21 @@
                 <!-- Navigation Links -->
                 <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                     @if(Auth::check() && !Auth::user()->isSuperAdmin())
-                        <x-nav-link :href="route('tasks.index')" :active="request()->routeIs('tasks.index') || request()->routeIs('dashboard')">
-                            {{ __('Tasks Table') }}
-                        </x-nav-link>
-                        <x-nav-link :href="route('tasks.create')" :active="request()->routeIs('tasks.create')">
-                            {{ __('Create Task') }}
-                        </x-nav-link>
-                        <x-nav-link :href="route('tasks.calendar')" :active="request()->routeIs('tasks.calendar')">
-                            {{ __('Calendar View') }}
-                        </x-nav-link>
+                        @if(Auth::user()->hasPermission('view_tasks'))
+                            <x-nav-link :href="route('tasks.index')" :active="request()->routeIs('tasks.index') || request()->routeIs('dashboard')">
+                                {{ __('Tasks Table') }}
+                            </x-nav-link>
+                        @endif
+                        @if(Auth::user()->hasPermission('create_tasks'))
+                            <x-nav-link :href="route('tasks.create')" :active="request()->routeIs('tasks.create')">
+                                {{ __('Create Task') }}
+                            </x-nav-link>
+                        @endif
+                        @if(Auth::user()->hasPermission('view_tasks'))
+                            <x-nav-link :href="route('tasks.calendar')" :active="request()->routeIs('tasks.calendar')">
+                                {{ __('Calendar View') }}
+                            </x-nav-link>
+                        @endif
                     @endif
 
                     @if(Auth::check() && (Auth::user()->isAdmin() || Auth::user()->isSuperAdmin()))
@@ -39,7 +45,7 @@
                         </x-nav-link>
                     @endif
 
-                    @if(Auth::check() && (Auth::user()->isAdmin() || Auth::user()->isTeamLeader() || Auth::user()->isSuperAdmin()))
+                    @if(Auth::check() && Auth::user()->hasPermission('view_analytics'))
                         <x-nav-link :href="route('analytics.index')" :active="request()->routeIs('analytics.index')">
                             {{ __('Analytics') }}
                         </x-nav-link>
@@ -146,15 +152,21 @@
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
             @if(Auth::check() && !Auth::user()->isSuperAdmin())
-                <x-responsive-nav-link :href="route('tasks.index')" :active="request()->routeIs('tasks.index') || request()->routeIs('dashboard')">
-                    {{ __('Tasks Table') }}
-                </x-responsive-nav-link>
-                <x-responsive-nav-link :href="route('tasks.create')" :active="request()->routeIs('tasks.create')">
-                    {{ __('Create Task') }}
-                </x-responsive-nav-link>
-                <x-responsive-nav-link :href="route('tasks.calendar')" :active="request()->routeIs('tasks.calendar')">
-                    {{ __('Calendar View') }}
-                </x-responsive-nav-link>
+                @if(Auth::user()->hasPermission('view_tasks'))
+                    <x-responsive-nav-link :href="route('tasks.index')" :active="request()->routeIs('tasks.index') || request()->routeIs('dashboard')">
+                        {{ __('Tasks Table') }}
+                    </x-responsive-nav-link>
+                @endif
+                @if(Auth::user()->hasPermission('create_tasks'))
+                    <x-responsive-nav-link :href="route('tasks.create')" :active="request()->routeIs('tasks.create')">
+                        {{ __('Create Task') }}
+                    </x-responsive-nav-link>
+                @endif
+                @if(Auth::user()->hasPermission('view_tasks'))
+                    <x-responsive-nav-link :href="route('tasks.calendar')" :active="request()->routeIs('tasks.calendar')">
+                        {{ __('Calendar View') }}
+                    </x-responsive-nav-link>
+                @endif
             @endif
 
             @if(Auth::check() && (Auth::user()->isAdmin() || Auth::user()->isSuperAdmin()))
@@ -163,7 +175,7 @@
                 </x-responsive-nav-link>
             @endif
 
-            @if(Auth::check() && (Auth::user()->isAdmin() || Auth::user()->isTeamLeader() || Auth::user()->isSuperAdmin()))
+            @if(Auth::check() && Auth::user()->hasPermission('view_analytics'))
                 <x-responsive-nav-link :href="route('analytics.index')" :active="request()->routeIs('analytics.index')">
                     {{ __('Analytics') }}
                 </x-responsive-nav-link>

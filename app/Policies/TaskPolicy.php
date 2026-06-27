@@ -12,23 +12,21 @@ class TaskPolicy
      */
     public function update(User $user, Task $task): bool
     {
-        // Super admin can edit anything
         if ($user->isSuperAdmin()) {
             return true;
         }
 
-        // Must belong to the same tenant
         if ($user->tenant_id !== $task->tenant_id) {
             return false;
         }
 
-        // Admin and Team Leader can edit any task in their tenant
-        if ($user->role === 'admin' || $user->role === 'team_leader') {
+        // If they have edit_all_tasks, they can edit any task in the tenant
+        if ($user->hasPermission('edit_all_tasks')) {
             return true;
         }
 
-        // Staff can only edit if they entered it, wrote the script, gave the voice, or edited the video
-        if ($user->role === 'staff') {
+        // Otherwise, they can edit if they have view_tasks and are assigned or entered it
+        if ($user->hasPermission('view_tasks')) {
             return $user->id === (int) $task->entry_by
                 || $user->id === (int) $task->script_by
                 || $user->id === (int) $task->voice_by
@@ -43,7 +41,14 @@ class TaskPolicy
      */
     public function delete(User $user, Task $task): bool
     {
-        // Same rules apply for deletion
-        return $this->update($user, $task);
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($user->tenant_id !== $task->tenant_id) {
+            return false;
+        }
+
+        return $user->hasPermission('delete_tasks');
     }
 }

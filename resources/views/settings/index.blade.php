@@ -43,13 +43,24 @@
                                 class="w-full border-gray-200 rounded-lg text-sm focus:border-indigo-500 focus:ring focus:ring-indigo-100">
                         </div>
 
-                        <div class="mb-6">
+                        <div class="mb-4">
                             <label for="user_role" class="block text-sm font-semibold text-gray-600 mb-2">Role</label>
                             <select name="role" id="user_role" required 
                                 class="w-full border-gray-200 rounded-lg text-sm focus:border-indigo-500 focus:ring focus:ring-indigo-100">
                                 <option value="staff">Staff (Standard Entry)</option>
                                 <option value="team_leader">Team Leader</option>
                                 <option value="admin">Tenant Admin</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-6">
+                            <label for="user_designation" class="block text-sm font-semibold text-gray-600 mb-2">Designation / Role (Optional)</label>
+                            <select name="designation_id" id="user_designation" 
+                                class="w-full border-gray-200 rounded-lg text-sm focus:border-indigo-500 focus:ring focus:ring-indigo-100">
+                                <option value="">Select Designation / Role</option>
+                                @foreach($designations as $desg)
+                                    <option value="{{ $desg->id }}">{{ $desg->name }}</option>
+                                @endforeach
                             </select>
                         </div>
 
@@ -68,9 +79,16 @@
                                         <div class="text-sm font-bold text-gray-800">{{ $u->name }}</div>
                                         <div class="text-xs text-gray-500">{{ $u->email }}</div>
                                     </div>
-                                    <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full {{ $u->role === 'admin' ? 'bg-purple-100 text-purple-800' : ($u->role === 'team_leader' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800') }}">
-                                        {{ ucfirst($u->role) }}
-                                    </span>
+                                    <div class="flex flex-col gap-1 items-end">
+                                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full {{ $u->role === 'admin' ? 'bg-purple-100 text-purple-800' : ($u->role === 'team_leader' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800') }}">
+                                            {{ ucfirst($u->role) }}
+                                        </span>
+                                        @if($u->designation)
+                                            <span class="inline-flex px-2 py-0.5 text-[10px] font-bold rounded" style="background-color: {{ $u->designation->color }}; color: #1e293b;">
+                                                {{ $u->designation->name }}
+                                            </span>
+                                        @endif
+                                    </div>
                                 </div>
                             @endforeach
                     </div>
@@ -90,7 +108,7 @@
                         <div>
                             <label for="slack_webhook_url" class="block text-xs font-bold text-gray-500 mb-1">Slack Webhook URL</label>
                             <input type="url" name="slack_webhook_url" id="slack_webhook_url" 
-                                value="{{ old('slack_webhook_url', Auth::user()->tenant->slack_webhook_url) }}"
+                                value="{{ old('slack_webhook_url', Auth::user()->tenant?->slack_webhook_url) }}"
                                 placeholder="https://hooks.slack.com/services/..." 
                                 class="w-full border-gray-200 rounded-lg text-xs focus:border-indigo-500 focus:ring focus:ring-indigo-100">
                             @error('slack_webhook_url')
@@ -102,7 +120,7 @@
                         <div>
                             <label for="telegram_bot_token" class="block text-xs font-bold text-gray-500 mb-1">Telegram Bot Token</label>
                             <input type="text" name="telegram_bot_token" id="telegram_bot_token" 
-                                value="{{ old('telegram_bot_token', Auth::user()->tenant->telegram_bot_token) }}"
+                                value="{{ old('telegram_bot_token', Auth::user()->tenant?->telegram_bot_token) }}"
                                 placeholder="e.g. 123456789:ABCdefGhI..." 
                                 class="w-full border-gray-200 rounded-lg text-xs focus:border-indigo-500 focus:ring focus:ring-indigo-100">
                             @error('telegram_bot_token')
@@ -114,7 +132,7 @@
                         <div>
                             <label for="telegram_chat_id" class="block text-xs font-bold text-gray-500 mb-1">Telegram Chat ID</label>
                             <input type="text" name="telegram_chat_id" id="telegram_chat_id" 
-                                value="{{ old('telegram_chat_id', Auth::user()->tenant->telegram_chat_id) }}"
+                                value="{{ old('telegram_chat_id', Auth::user()->tenant?->telegram_chat_id) }}"
                                 placeholder="e.g. -100123456789" 
                                 class="w-full border-gray-200 rounded-lg text-xs focus:border-indigo-500 focus:ring focus:ring-indigo-100">
                             @error('telegram_chat_id')
@@ -280,6 +298,161 @@
                                 @empty
                                     <p class="text-xs text-gray-400">No shifts configured.</p>
                                 @endforelse
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 4: Designations -->
+                    <div class="grid grid-cols-1 gap-8" x-data="{ permissionsModalOpen: false, selectedDesg: { id: null, name: '', permissions: [] }, openPermissionsModal(desg) { this.selectedDesg = desg; this.permissionsModalOpen = true; } }">
+                        <!-- Designations -->
+                        <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-gray-100 p-6">
+                            <h3 class="font-bold text-gray-800 text-base mb-2">Staff Designations / Roles</h3>
+                            <p class="text-xs text-gray-400 mb-6">Manage professional positions and roles for your media organization (e.g. Reporter, Script Writer, SEO Specialist).</p>
+                            
+                            <form action="{{ route('settings.designations.store') }}" method="POST" class="flex gap-4 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100 max-w-xl">
+                                @csrf
+                                <div class="flex-1">
+                                    <label for="desg_name" class="block text-xs font-bold text-gray-500 mb-1">Designation Name</label>
+                                    <input type="text" name="name" id="desg_name" required placeholder="e.g. SEO Specialist" class="w-full border-gray-200 rounded-lg text-xs focus:ring focus:ring-indigo-100 bg-white">
+                                </div>
+                                <div>
+                                    <label for="desg_color" class="block text-xs font-bold text-gray-500 mb-1">Badge Color</label>
+                                    <div class="flex gap-2 items-center">
+                                        <input type="color" name="color" id="desg_color" value="#e2e8f0" class="w-10 h-8 p-0 border border-gray-200 rounded-lg cursor-pointer bg-white">
+                                        <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition">Add Designation</button>
+                                    </div>
+                                </div>
+                            </form>
+
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr class="border-b border-gray-100 text-gray-400 uppercase font-bold tracking-wider">
+                                            <th class="pb-3 font-semibold">Designation</th>
+                                            <th class="pb-3 font-semibold">Assigned Permissions</th>
+                                            <th class="pb-3 font-semibold text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-50">
+                                        @forelse($designations as $desg)
+                                            <tr>
+                                                <td class="py-3">
+                                                    <span class="inline-flex items-center px-2.5 py-1 rounded text-xs font-bold border border-gray-200 shadow-sm" style="background-color: {{ $desg->color ?? '#e2e8f0' }}; color: #1e293b;">
+                                                        {{ $desg->name }}
+                                                    </span>
+                                                </td>
+                                                <td class="py-3 text-gray-500">
+                                                    @php
+                                                        $perms = $desg->permissions ?? [];
+                                                    @endphp
+                                                    @if(empty($perms))
+                                                        <span class="text-gray-400 italic text-[10px]">No permissions assigned (View only)</span>
+                                                    @else
+                                                        <div class="flex flex-wrap gap-1">
+                                                            @foreach($perms as $p)
+                                                                <span class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-semibold">
+                                                                    {{ str_replace('_', ' ', $p) }}
+                                                                </span>
+                                                            @endforeach
+                                                        </div>
+                                                    @endif
+                                                </td>
+                                                <td class="py-3 text-right">
+                                                    <div class="inline-flex items-center gap-2">
+                                                        <!-- Edit Permissions Button -->
+                                                        <button type="button" 
+                                                            @click="openPermissionsModal({{ json_encode($desg) }})"
+                                                            class="text-indigo-600 hover:text-indigo-900 font-bold p-1 rounded hover:bg-indigo-50 transition" 
+                                                            title="Edit Permissions">
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+                                                        </button>
+
+                                                        <!-- Delete Form -->
+                                                        <form action="{{ route('settings.designations.destroy', $desg->id) }}" method="POST" class="inline">
+                                                            @csrf @method('DELETE')
+                                                            <button type="submit" 
+                                                                class="text-red-500 hover:text-red-800 font-bold p-1 rounded hover:bg-red-50 transition" 
+                                                                onclick="return confirm('Are you sure you want to delete this designation?')">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="3" class="py-4 text-center text-gray-400 italic">No designations configured.</td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Permissions Modal Overlay -->
+                        <div x-show="permissionsModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center bg-black bg-opacity-50 p-4" x-cloak>
+                            <div class="bg-white rounded-xl shadow-xl max-w-md w-full border border-gray-100 p-6 relative" @click.away="permissionsModalOpen = false">
+                                <button type="button" @click="permissionsModalOpen = false" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg">&times;</button>
+                                
+                                <h3 class="font-bold text-gray-800 text-lg mb-2">Edit Designation Permissions</h3>
+                                <p class="text-xs text-gray-400 mb-6">Configure what members with the designation <span class="font-bold text-indigo-600" x-text="selectedDesg.name"></span> can see and do.</p>
+                                
+                                <form :action="`/settings/designations/${selectedDesg.id}/permissions`" method="POST" class="space-y-4">
+                                    @csrf
+                                    @method('PUT')
+                                    
+                                    <div class="space-y-3">
+                                        <!-- View Dashboard -->
+                                        <label class="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:bg-slate-50 cursor-pointer transition">
+                                            <input type="checkbox" name="permissions[]" value="view_tasks" :checked="selectedDesg.permissions && selectedDesg.permissions.includes('view_tasks')" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mt-1">
+                                            <div>
+                                                <span class="block text-sm font-semibold text-gray-700">View Tasks / Dashboard</span>
+                                                <span class="block text-xs text-gray-400">Can view the tasks log lists, tables and calendars.</span>
+                                            </div>
+                                        </label>
+
+                                        <!-- Log Task -->
+                                        <label class="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:bg-slate-50 cursor-pointer transition">
+                                            <input type="checkbox" name="permissions[]" value="create_tasks" :checked="selectedDesg.permissions && selectedDesg.permissions.includes('create_tasks')" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mt-1">
+                                            <div>
+                                                <span class="block text-sm font-semibold text-gray-700">Log/Create Tasks</span>
+                                                <span class="block text-xs text-gray-400">Can log new tasks and organization assignments.</span>
+                                            </div>
+                                        </label>
+
+                                        <!-- Edit All Tasks -->
+                                        <label class="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:bg-slate-50 cursor-pointer transition">
+                                            <input type="checkbox" name="permissions[]" value="edit_all_tasks" :checked="selectedDesg.permissions && selectedDesg.permissions.includes('edit_all_tasks')" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mt-1">
+                                            <div>
+                                                <span class="block text-sm font-semibold text-gray-700">Edit All Tasks</span>
+                                                <span class="block text-xs text-gray-400">Can edit any task (otherwise restricted to owned/assigned tasks).</span>
+                                            </div>
+                                        </label>
+
+                                        <!-- Delete Tasks -->
+                                        <label class="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:bg-slate-50 cursor-pointer transition">
+                                            <input type="checkbox" name="permissions[]" value="delete_tasks" :checked="selectedDesg.permissions && selectedDesg.permissions.includes('delete_tasks')" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mt-1">
+                                            <div>
+                                                <span class="block text-sm font-semibold text-gray-700">Delete Tasks</span>
+                                                <span class="block text-xs text-gray-400">Can delete tasks from database logs.</span>
+                                            </div>
+                                        </label>
+
+                                        <!-- View Analytics -->
+                                        <label class="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:bg-slate-50 cursor-pointer transition">
+                                            <input type="checkbox" name="permissions[]" value="view_analytics" :checked="selectedDesg.permissions && selectedDesg.permissions.includes('view_analytics')" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mt-1">
+                                            <div>
+                                                <span class="block text-sm font-semibold text-gray-700">View Analytics & Charts</span>
+                                                <span class="block text-xs text-gray-400">Can access the visual analytics, performance metrics, and productivity reports.</span>
+                                            </div>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="flex gap-3 justify-end pt-4 border-t border-gray-100">
+                                        <button type="button" @click="permissionsModalOpen = false" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg text-xs transition">Cancel</button>
+                                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg text-xs transition shadow-sm">Save Changes</button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
                     </div>

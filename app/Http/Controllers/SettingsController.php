@@ -30,17 +30,18 @@ class SettingsController extends Controller
 
         $tenantId = Auth::user()->tenant_id;
 
-        // Fetch scoped items (automatically filtered if BelongsToTenant global scope is active, but we can load explicitly if needed)
+        // Fetch scoped items
         $taskTypes = TaskType::all();
         $facebookPages = FacebookPage::all();
         $youtubeChannels = YoutubeChannel::all();
         $areas = Area::all();
         $teams = Team::all();
-        $users = User::where('tenant_id', $tenantId)->get();
+        $users = User::with('designation')->where('tenant_id', $tenantId)->get();
         $shifts = Shift::all();
+        $designations = \App\Models\Designation::all();
         $activityLogs = ActivityLog::with('user')->orderBy('created_at', 'desc')->take(50)->get();
 
-        return view('settings.index', compact('taskTypes', 'facebookPages', 'youtubeChannels', 'areas', 'teams', 'users', 'shifts', 'activityLogs'));
+        return view('settings.index', compact('taskTypes', 'facebookPages', 'youtubeChannels', 'areas', 'teams', 'users', 'shifts', 'designations', 'activityLogs'));
     }
 
     // Task Types
@@ -144,6 +145,7 @@ class SettingsController extends Controller
             'email' => 'required|string|email|max:255|unique:users,email',
             'password' => 'required|string|min:8',
             'role' => 'required|string|in:admin,team_leader,staff',
+            'designation_id' => 'nullable|exists:designations,id',
         ]);
 
         User::create([
@@ -152,6 +154,7 @@ class SettingsController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => $request->role,
+            'designation_id' => $request->designation_id,
         ]);
 
         return redirect()->route('settings.index')->with('success', 'User/Staff added successfully!');
@@ -197,12 +200,65 @@ class SettingsController extends Controller
         ]);
 
         $tenant = Auth::user()->tenant;
-        $tenant->update([
-            'slack_webhook_url' => $request->slack_webhook_url,
-            'telegram_bot_token' => $request->telegram_bot_token,
-            'telegram_chat_id' => $request->telegram_chat_id,
+        if ($tenant) {
+            $tenant->update([
+                'slack_webhook_url' => $request->slack_webhook_url,
+                'telegram_bot_token' => $request->telegram_bot_token,
+                'telegram_chat_id' => $request->telegram_chat_id,
+            ]);
+            return redirect()->route('settings.index')->with('success', 'Messaging Webhook settings updated successfully!');
+        }
+
+        return redirect()->route('settings.index')->with('error', 'No tenant associated with this account.');
+    }
+
+    /**
+     * Store a newly created custom designation.
+     */
+    public function storeDesignation(Request $request)
+    {
+        $this->checkAccess();
+        $request->validate([
+            'name' => 'required|string|max:100',
+            'color' => 'nullable|string|max:7',
+            'permissions' => 'nullable|array',
+            'permissions.*' => 'string|in:view_tasks,create_tasks,edit_all_tasks,delete_tasks,view_analytics',
         ]);
 
-        return redirect()->route('settings.index')->with('success', 'Messaging Webhook settings updated successfully!');
+        \App\Models\Designation::create([
+            'name' => $request->name,
+            'color' => $request->color ?? '#e2e8f0',
+            'permissions' => $request->permissions ?? [],
+        ]);
+
+        return redirect()->route('settings.index')->with('success', 'Designation added successfully!');
+    }
+
+    /**
+     * Update permissions for an existing designation.
+     */
+    public function updateDesignationPermissions(Request $request, \App\Models\Designation $designation)
+    {
+        $this->checkAccess();
+        $request->validate([
+            'permissions' => 'nullable|array',
+            'permissions.*' => 'string|in:view_tasks,create_tasks,edit_all_tasks,delete_tasks,view_analytics',
+        ]);
+
+        $designation->update([
+            'permissions' => $request->permissions ?? [],
+        ]);
+
+        return redirect()->route('settings.index')->with('success', 'Designation permissions updated successfully!');
+    }
+
+    /**
+     * Delete a custom designation.
+     */
+    public function destroyDesignation(\App\Models\Designation $designation)
+    {
+        $this->checkAccess();
+        $designation->delete();
+        return redirect()->route('settings.index')->with('success', 'Designation deleted successfully!');
     }
 }

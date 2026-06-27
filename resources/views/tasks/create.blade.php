@@ -193,7 +193,7 @@
                                 <select name="script_by" id="script_by" 
                                     class="w-full border-gray-200 rounded-lg text-sm p-2.5 focus:border-indigo-500 focus:ring focus:ring-indigo-100">
                                     <option value="">Select Staff</option>
-                                    @foreach($users as $staff)
+                                    @foreach($scriptWriterCandidates as $staff)
                                         <option value="{{ $staff->id }}">{{ $staff->name }}</option>
                                     @endforeach
                                 </select>
@@ -207,7 +207,7 @@
                                 <select name="voice_by" id="voice_by" 
                                     class="w-full border-gray-200 rounded-lg text-sm p-2.5 focus:border-indigo-500 focus:ring focus:ring-indigo-100">
                                     <option value="">Select Staff</option>
-                                    @foreach($users as $staff)
+                                    @foreach($voiceArtistCandidates as $staff)
                                         <option value="{{ $staff->id }}">{{ $staff->name }}</option>
                                     @endforeach
                                 </select>
@@ -221,7 +221,7 @@
                                 <select name="video_edit_by" id="video_edit_by" 
                                     class="w-full border-gray-200 rounded-lg text-sm p-2.5 focus:border-indigo-500 focus:ring focus:ring-indigo-100">
                                     <option value="">Select Staff</option>
-                                    @foreach($users as $staff)
+                                    @foreach($videoEditorCandidates as $staff)
                                         <option value="{{ $staff->id }}">{{ $staff->name }}</option>
                                     @endforeach
                                 </select>

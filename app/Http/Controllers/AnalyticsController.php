@@ -15,8 +15,7 @@ class AnalyticsController extends Controller
 {
     private function checkAccess()
     {
-        $role = Auth::user()->role;
-        if ($role !== 'admin' && $role !== 'team_leader' && $role !== 'super_admin') {
+        if (!Auth::user()->hasPermission('view_analytics')) {
             abort(403, 'Unauthorized access.');
         }
     }

@@ -10,7 +10,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['tenant_id', 'name', 'email', 'password', 'role'])]
+#[Fillable(['tenant_id', 'name', 'email', 'password', 'role', 'designation_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -27,6 +27,11 @@ class User extends Authenticatable
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    public function designation(): BelongsTo
+    {
+        return $this->belongsTo(Designation::class);
     }
 
     // Role helper methods
@@ -48,6 +53,31 @@ class User extends Authenticatable
     public function isStaff(): bool
     {
         return $this->role === 'staff';
+    }
+
+    /**
+     * Check if user is authorized to perform specific actions.
+     */
+    public function hasPermission(string $permission): bool
+    {
+        if ($this->isSuperAdmin() || $this->role === 'admin') {
+            return true;
+        }
+
+        if ($this->designation) {
+            $permissions = $this->designation->permissions ?? [];
+            return in_array($permission, $permissions);
+        }
+
+        if ($this->role === 'team_leader') {
+            return in_array($permission, ['view_tasks', 'create_tasks', 'edit_all_tasks', 'view_analytics']);
+        }
+
+        if ($this->role === 'staff') {
+            return in_array($permission, ['view_tasks', 'create_tasks']);
+        }
+
+        return false;
     }
 
     // Relationships

@@ -35,6 +35,31 @@ class DatabaseSeeder extends Seeder
             'slug' => 'dbc-news',
         ]);
 
+        // Seed Default Designations for DBC
+        $defaultDesignations = [
+            'Reporter' => '#e0f2fe',
+            'Script Writer' => '#fef3c7',
+            'Uploader' => '#e0e7ff',
+            'Voice Artist' => '#f3e8ff',
+            'Correspondent' => '#dcfce7',
+            'Content Reviewer' => '#ffedd5',
+            'Video Editor' => '#ccfbf1',
+            'Graphic Designer' => '#fce7f3',
+            'Sound Engineer' => '#f1f5f9',
+            'Researcher' => '#fae8ff',
+            'Content Strategist' => '#e0f2fe',
+            'SEO Specialist' => '#fef2f2'
+        ];
+
+        $dbcDesignations = [];
+        foreach ($defaultDesignations as $name => $color) {
+            $dbcDesignations[$name] = \App\Models\Designation::create([
+                'tenant_id' => $dbc->id,
+                'name' => $name,
+                'color' => $color,
+            ]);
+        }
+
         // DBC News Staff/Users
         $dbcAdmin = User::create([
             'tenant_id' => $dbc->id,
@@ -58,6 +83,7 @@ class DatabaseSeeder extends Seeder
             'email' => 'm.hussain@tracker.com',
             'password' => Hash::make('password'),
             'role' => 'staff',
+            'designation_id' => $dbcDesignations['Script Writer']->id,
         ]);
 
         $mMehadi = User::create([
@@ -66,6 +92,7 @@ class DatabaseSeeder extends Seeder
             'email' => 'mehadi@tracker.com',
             'password' => Hash::make('password'),
             'role' => 'staff',
+            'designation_id' => $dbcDesignations['Voice Artist']->id,
         ]);
 
         $mizan = User::create([
@@ -74,6 +101,7 @@ class DatabaseSeeder extends Seeder
             'email' => 'mizan@tracker.com',
             'password' => Hash::make('password'),
             'role' => 'staff',
+            'designation_id' => $dbcDesignations['Video Editor']->id,
         ]);
 
         $roney = User::create([
@@ -82,6 +110,7 @@ class DatabaseSeeder extends Seeder
             'email' => 'roney@tracker.com',
             'password' => Hash::make('password'),
             'role' => 'staff',
+            'designation_id' => $dbcDesignations['Graphic Designer']->id,
         ]);
 
         $riad = User::create([
@@ -90,6 +119,7 @@ class DatabaseSeeder extends Seeder
             'email' => 'riad@tracker.com',
             'password' => Hash::make('password'),
             'role' => 'staff',
+            'designation_id' => $dbcDesignations['Reporter']->id,
         ]);
 
         // DBC News Teams
@@ -208,6 +238,15 @@ class DatabaseSeeder extends Seeder
             'slug' => 'independent-tv',
         ]);
 
+        $itvDesignations = [];
+        foreach ($defaultDesignations as $name => $color) {
+            $itvDesignations[$name] = \App\Models\Designation::create([
+                'tenant_id' => $itv->id,
+                'name' => $name,
+                'color' => $color,
+            ]);
+        }
+
         $itvAdmin = User::create([
             'tenant_id' => $itv->id,
             'name' => 'ITV Admin',
@@ -222,6 +261,7 @@ class DatabaseSeeder extends Seeder
             'email' => 'itvstaff@tracker.com',
             'password' => Hash::make('password'),
             'role' => 'staff',
+            'designation_id' => $itvDesignations['Reporter']->id,
         ]);
 
         $itvTeam = Team::create(['tenant_id' => $itv->id, 'name' => 'ITV News Room']);

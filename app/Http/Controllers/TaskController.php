@@ -22,6 +22,10 @@ class TaskController extends Controller
      */
     public function index(Request $request)
     {
+        if (!Auth::user()->hasPermission('view_tasks')) {
+            abort(403, 'Unauthorized access.');
+        }
+
         $tenantId = Auth::user()->tenant_id;
 
         // Verify that user belongs to a tenant (except Super Admin who might view globally, but they should select a tenant or be scoped to none)
@@ -143,6 +147,10 @@ class TaskController extends Controller
      */
     public function calendar()
     {
+        if (!Auth::user()->hasPermission('view_tasks')) {
+            abort(403, 'Unauthorized access.');
+        }
+
         $tenantId = Auth::user()->tenant_id;
 
         // Fetch all tenant tasks with relations
@@ -199,6 +207,10 @@ class TaskController extends Controller
      */
     public function create()
     {
+        if (!Auth::user()->hasPermission('create_tasks')) {
+            abort(403, 'Unauthorized access.');
+        }
+
         $tenantId = Auth::user()->tenant_id;
 
         $taskTypes = TaskType::all();
@@ -206,10 +218,35 @@ class TaskController extends Controller
         $youtubeChannels = YoutubeChannel::where('is_active', true)->get();
         $areas = Area::all();
         $teams = Team::all();
-        $users = User::where('tenant_id', $tenantId)->get(); // All tenant users for dropdown assignments
+        $users = User::where('tenant_id', $tenantId)->get();
         $shifts = Shift::all();
 
-        return view('tasks.create', compact('taskTypes', 'facebookPages', 'youtubeChannels', 'areas', 'teams', 'users', 'shifts'));
+        // Dynamic Designation Filtering
+        $scriptWriterCandidates = User::where('tenant_id', $tenantId)
+            ->whereHas('designation', function($q) { $q->where('name', 'Script Writer'); })
+            ->get();
+        if ($scriptWriterCandidates->isEmpty()) {
+            $scriptWriterCandidates = $users;
+        }
+
+        $voiceArtistCandidates = User::where('tenant_id', $tenantId)
+            ->whereHas('designation', function($q) { $q->where('name', 'Voice Artist'); })
+            ->get();
+        if ($voiceArtistCandidates->isEmpty()) {
+            $voiceArtistCandidates = $users;
+        }
+
+        $videoEditorCandidates = User::where('tenant_id', $tenantId)
+            ->whereHas('designation', function($q) { $q->where('name', 'Video Editor'); })
+            ->get();
+        if ($videoEditorCandidates->isEmpty()) {
+            $videoEditorCandidates = $users;
+        }
+
+        return view('tasks.create', compact(
+            'taskTypes', 'facebookPages', 'youtubeChannels', 'areas', 'teams', 'users', 'shifts',
+            'scriptWriterCandidates', 'voiceArtistCandidates', 'videoEditorCandidates'
+        ));
     }
 
     /**
@@ -217,6 +254,10 @@ class TaskController extends Controller
      */
     public function store(Request $request)
     {
+        if (!Auth::user()->hasPermission('create_tasks')) {
+            abort(403, 'Unauthorized access.');
+        }
+
         $request->validate([
             'title' => 'required|string|max:500',
             'task_type_id' => 'required|exists:task_types,id',
@@ -277,7 +318,32 @@ class TaskController extends Controller
         $users = User::where('tenant_id', $tenantId)->get();
         $shifts = Shift::all();
 
-        return view('tasks.edit', compact('task', 'taskTypes', 'facebookPages', 'youtubeChannels', 'areas', 'teams', 'users', 'shifts'));
+        // Dynamic Designation Filtering
+        $scriptWriterCandidates = User::where('tenant_id', $tenantId)
+            ->whereHas('designation', function($q) { $q->where('name', 'Script Writer'); })
+            ->get();
+        if ($scriptWriterCandidates->isEmpty()) {
+            $scriptWriterCandidates = $users;
+        }
+
+        $voiceArtistCandidates = User::where('tenant_id', $tenantId)
+            ->whereHas('designation', function($q) { $q->where('name', 'Voice Artist'); })
+            ->get();
+        if ($voiceArtistCandidates->isEmpty()) {
+            $voiceArtistCandidates = $users;
+        }
+
+        $videoEditorCandidates = User::where('tenant_id', $tenantId)
+            ->whereHas('designation', function($q) { $q->where('name', 'Video Editor'); })
+            ->get();
+        if ($videoEditorCandidates->isEmpty()) {
+            $videoEditorCandidates = $users;
+        }
+
+        return view('tasks.edit', compact(
+            'task', 'taskTypes', 'facebookPages', 'youtubeChannels', 'areas', 'teams', 'users', 'shifts',
+            'scriptWriterCandidates', 'voiceArtistCandidates', 'videoEditorCandidates'
+        ));
     }
 
     /**

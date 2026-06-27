@@ -57,6 +57,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/settings/shifts', [SettingsController::class, 'storeShift'])->name('settings.shifts.store');
     Route::delete('/settings/shifts/{shift}', [SettingsController::class, 'destroyShift'])->name('settings.shifts.destroy');
     
+    Route::post('/settings/designations', [SettingsController::class, 'storeDesignation'])->name('settings.designations.store');
+    Route::delete('/settings/designations/{designation}', [SettingsController::class, 'destroyDesignation'])->name('settings.designations.destroy');
+    Route::put('/settings/designations/{designation}/permissions', [SettingsController::class, 'updateDesignationPermissions'])->name('settings.designations.permissions.update');
+    
     Route::post('/settings/users', [SettingsController::class, 'storeUser'])->name('settings.users.store');
     Route::post('/settings/webhooks', [SettingsController::class, 'updateWebhookSettings'])->name('settings.webhooks.update');
 
