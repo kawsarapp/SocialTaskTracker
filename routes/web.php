@@ -33,6 +33,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/calendar', [TaskController::class, 'calendar'])->name('tasks.calendar');
     Route::get('/tasks/fetch-metadata', [TaskController::class, 'fetchMetadata'])->name('tasks.fetch-metadata');
     Route::resource('tasks', TaskController::class);
+    Route::post('/tasks/{task}/sync-stats', [TaskController::class, 'syncSingleTask'])->name('tasks.sync-stats');
     Route::post('/tasks/{task}/comments', [CommentController::class, 'store'])->name('tasks.comments.store');
     Route::get('/tasks/comments/poll', [CommentController::class, 'poll'])->name('tasks.comments.poll');
     Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
@@ -60,9 +61,13 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/settings/designations', [SettingsController::class, 'storeDesignation'])->name('settings.designations.store');
     Route::delete('/settings/designations/{designation}', [SettingsController::class, 'destroyDesignation'])->name('settings.designations.destroy');
     Route::put('/settings/designations/{designation}/permissions', [SettingsController::class, 'updateDesignationPermissions'])->name('settings.designations.permissions.update');
+    Route::put('/settings/designations/{designation}/toggle-column', [SettingsController::class, 'toggleTaskColumn'])->name('settings.designations.toggle-column');
     
     Route::post('/settings/users', [SettingsController::class, 'storeUser'])->name('settings.users.store');
+    Route::post('/settings/task-form-config', [SettingsController::class, 'updateTaskFormConfig'])->name('settings.task-form-config.update');
     Route::post('/settings/webhooks', [SettingsController::class, 'updateWebhookSettings'])->name('settings.webhooks.update');
+    Route::post('/settings/api-keys', [SettingsController::class, 'updateApiSettings'])->name('settings.api-keys.update');
+    Route::post('/settings/api-keys/sync', [SettingsController::class, 'triggerBulkSync'])->name('settings.api-keys.sync');
 
     // Super Admin Portal
     Route::get('/superadmin', [SuperAdminController::class, 'index'])->name('superadmin.index');

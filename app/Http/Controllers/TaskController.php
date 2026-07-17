@@ -31,7 +31,8 @@ class TaskController extends Controller
         // Verify that user belongs to a tenant (except Super Admin who might view globally, but they should select a tenant or be scoped to none)
         $query = Task::with([
             'taskType', 'facebookPage', 'youtubeChannel', 'area', 'team',
-            'scriptWriter', 'voiceArtist', 'videoEditor', 'entryUser'
+            'scriptWriter', 'voiceArtist', 'videoEditor', 'entryUser',
+            'assignments.designation', 'assignments.user'
         ]);
 
         // If Super Admin is viewing the dashboard, they can see all or select a tenant
@@ -108,19 +109,23 @@ class TaskController extends Controller
             $query->where(function($q) {
                 $userId = Auth::id();
                 $q->where('entry_by', $userId)
-                  ->orWhere('script_by', $userId)
-                  ->orWhere('voice_by', $userId)
-                  ->orWhere('video_edit_by', $userId);
+                  ->orWhereHas('assignments', function($q2) use ($userId) {
+                      $q2->where('user_id', $userId);
+                  });
             });
         } elseif ($request->input('scope') === 'pending_edit') {
-            $query->where('video_edit_by', Auth::id())
-                  ->where(function($q) {
-                      $q->where(function($q2) {
-                          $q2->whereNull('facebook_url')->orWhere('facebook_url', '');
-                      })->orWhere(function($q3) {
-                          $q3->whereNull('youtube_url')->orWhere('youtube_url', '');
-                      });
+            $query->whereHas('assignments', function($q) {
+                $q->where('user_id', Auth::id())
+                  ->whereHas('designation', function($q2) {
+                      $q2->where('name', 'Video Editor');
                   });
+            })->where(function($q) {
+                $q->where(function($q2) {
+                    $q2->whereNull('facebook_url')->orWhere('facebook_url', '');
+                })->orWhere(function($q3) {
+                    $q3->whereNull('youtube_url')->orWhere('youtube_url', '');
+                });
+            });
         }
 
         // Sorting & Pagination
@@ -138,8 +143,9 @@ class TaskController extends Controller
         $youtubeChannels = YoutubeChannel::where('is_active', true)->get();
         $areas = Area::all();
         $users = User::where('tenant_id', $tenantId)->get();
+        $activeColumns = \App\Models\Designation::where('is_task_column', true)->get();
 
-        return view('tasks.index', compact('tasks', 'teams', 'taskTypes', 'facebookPages', 'youtubeChannels', 'areas', 'users'));
+        return view('tasks.index', compact('tasks', 'teams', 'taskTypes', 'facebookPages', 'youtubeChannels', 'areas', 'users', 'activeColumns'));
     }
 
     /**
@@ -154,7 +160,10 @@ class TaskController extends Controller
         $tenantId = Auth::user()->tenant_id;
 
         // Fetch all tenant tasks with relations
-        $tasks = Task::with(['taskType', 'area', 'team', 'scriptWriter', 'voiceArtist', 'videoEditor', 'entryUser'])->get();
+        $tasks = Task::with([
+            'taskType', 'area', 'team', 'scriptWriter', 'voiceArtist', 'videoEditor', 'entryUser',
+            'assignments.designation', 'assignments.user'
+        ])->get();
 
         // Format events array for FullCalendar
         $events = $tasks->map(function ($task) {
@@ -193,12 +202,17 @@ class TaskController extends Controller
                     'tags' => $task->tags ?? '',
                     'remarks' => $task->remarks ?? '',
                     'edit_url' => route('tasks.edit', $task->id),
+                    'assignments' => $task->assignments->map(fn($a) => ['role' => $a->designation->name, 'name' => $a->user->name])->toArray(),
+                    'custom_fields' => $task->custom_fields ?? [],
                 ]
             ];
         });
 
+        $activeColumns = \App\Models\Designation::where('is_task_column', true)->get();
+
         return view('tasks.calendar', [
-            'eventsJson' => json_encode($events)
+            'eventsJson' => json_encode($events),
+            'activeColumns' => $activeColumns,
         ]);
     }
 
@@ -222,30 +236,21 @@ class TaskController extends Controller
         $shifts = Shift::all();
 
         // Dynamic Designation Filtering
-        $scriptWriterCandidates = User::where('tenant_id', $tenantId)
-            ->whereHas('designation', function($q) { $q->where('name', 'Script Writer'); })
-            ->get();
-        if ($scriptWriterCandidates->isEmpty()) {
-            $scriptWriterCandidates = $users;
-        }
-
-        $voiceArtistCandidates = User::where('tenant_id', $tenantId)
-            ->whereHas('designation', function($q) { $q->where('name', 'Voice Artist'); })
-            ->get();
-        if ($voiceArtistCandidates->isEmpty()) {
-            $voiceArtistCandidates = $users;
-        }
-
-        $videoEditorCandidates = User::where('tenant_id', $tenantId)
-            ->whereHas('designation', function($q) { $q->where('name', 'Video Editor'); })
-            ->get();
-        if ($videoEditorCandidates->isEmpty()) {
-            $videoEditorCandidates = $users;
+        $activeColumns = \App\Models\Designation::where('is_task_column', true)->get();
+        $usersByDesignation = [];
+        foreach ($activeColumns as $col) {
+            $candidates = User::where('tenant_id', $tenantId)
+                ->where('designation_id', $col->id)
+                ->get();
+            if ($candidates->isEmpty()) {
+                $candidates = $users;
+            }
+            $usersByDesignation[$col->id] = $candidates;
         }
 
         return view('tasks.create', compact(
             'taskTypes', 'facebookPages', 'youtubeChannels', 'areas', 'teams', 'users', 'shifts',
-            'scriptWriterCandidates', 'voiceArtistCandidates', 'videoEditorCandidates'
+            'activeColumns', 'usersByDesignation'
         ));
     }
 
@@ -258,26 +263,66 @@ class TaskController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        $request->validate([
+        $tenantConfig = Auth::user()->tenant->task_form_config ?? [];
+
+        $rules = [
             'title' => 'required|string|max:500',
-            'task_type_id' => 'required|exists:task_types,id',
-            'facebook_url' => 'nullable|url|max:2048',
-            'facebook_page_id' => 'nullable|exists:facebook_pages,id',
-            'youtube_url' => 'nullable|url|max:2048',
-            'youtube_channel_id' => 'nullable|exists:youtube_channels,id',
-            'on_air_time' => 'required|string|max:50',
-            'on_air_date' => 'required|date',
-            'area_id' => 'nullable|exists:areas,id',
-            'team_id' => 'nullable|exists:teams,id',
-            'script_by' => 'nullable|exists:users,id',
-            'voice_by' => 'nullable|exists:users,id',
-            'video_edit_by' => 'nullable|exists:users,id',
             'tags' => 'nullable|string|max:255',
             'remarks' => 'nullable|string',
-            'shift_id' => 'nullable|exists:shifts,id',
             'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'script_file' => 'nullable|file|mimes:docx,pdf,txt,doc|max:5120',
-        ]);
+            'staff_assignments' => 'nullable|array',
+            'staff_assignments.*' => 'nullable|exists:users,id',
+        ];
+
+        $fieldsToMap = [
+            'task_type_id' => 'exists:task_types,id',
+            'facebook_url' => 'url|max:2048',
+            'facebook_page_id' => 'exists:facebook_pages,id',
+            'youtube_url' => 'url|max:2048',
+            'youtube_channel_id' => 'exists:youtube_channels,id',
+            'on_air_time' => 'string|max:50',
+            'on_air_date' => 'date',
+            'area_id' => 'exists:areas,id',
+            'team_id' => 'exists:teams,id',
+            'shift_id' => 'exists:shifts,id',
+        ];
+
+        foreach ($fieldsToMap as $field => $baseRule) {
+            $visible = $tenantConfig[$field]['visible'] ?? true;
+            $required = $tenantConfig[$field]['required'] ?? false;
+
+            if ($visible && $required) {
+                $rules[$field] = 'required|' . $baseRule;
+            } else {
+                $rules[$field] = 'nullable|' . $baseRule;
+            }
+        }
+
+        $fileFields = ['thumbnail', 'script_file'];
+        foreach ($fileFields as $field) {
+            $visible = $tenantConfig[$field]['visible'] ?? true;
+            $required = $tenantConfig[$field]['required'] ?? false;
+            if ($visible && $required) {
+                $rules[$field] = str_replace('nullable', 'required', $rules[$field]);
+            }
+        }
+
+        // Custom fields validation
+        foreach ($tenantConfig as $key => $fieldVal) {
+            if ($fieldVal['is_custom'] ?? false) {
+                $visible = $fieldVal['visible'] ?? true;
+                $required = $fieldVal['required'] ?? false;
+
+                if ($visible && $required) {
+                    $rules["custom_fields.{$key}"] = 'required';
+                } else {
+                    $rules["custom_fields.{$key}"] = 'nullable';
+                }
+            }
+        }
+
+        $request->validate($rules);
 
         $data = $request->all();
         $tenantId = Auth::user()->tenant_id;
@@ -294,6 +339,23 @@ class TaskController extends Controller
             'entry_by' => Auth::id(),
             'tenant_id' => Auth::user()->tenant_id,
         ]));
+
+        // Create staff assignments
+        if ($request->filled('staff_assignments')) {
+            foreach ($request->staff_assignments as $designationId => $userId) {
+                if ($userId) {
+                    \App\Models\TaskAssignment::create([
+                        'task_id' => $task->id,
+                        'designation_id' => $designationId,
+                        'user_id' => $userId,
+                    ]);
+                }
+            }
+        }
+
+        // Sync stats if API credentials are set
+        $syncService = new \App\Services\SocialMediaSyncService();
+        $syncService->syncTask($task);
 
         \App\Services\NotificationService::sendTaskNotification($task, 'created');
 
@@ -319,30 +381,23 @@ class TaskController extends Controller
         $shifts = Shift::all();
 
         // Dynamic Designation Filtering
-        $scriptWriterCandidates = User::where('tenant_id', $tenantId)
-            ->whereHas('designation', function($q) { $q->where('name', 'Script Writer'); })
-            ->get();
-        if ($scriptWriterCandidates->isEmpty()) {
-            $scriptWriterCandidates = $users;
+        $activeColumns = \App\Models\Designation::where('is_task_column', true)->get();
+        $usersByDesignation = [];
+        foreach ($activeColumns as $col) {
+            $candidates = User::where('tenant_id', $tenantId)
+                ->where('designation_id', $col->id)
+                ->get();
+            if ($candidates->isEmpty()) {
+                $candidates = $users;
+            }
+            $usersByDesignation[$col->id] = $candidates;
         }
 
-        $voiceArtistCandidates = User::where('tenant_id', $tenantId)
-            ->whereHas('designation', function($q) { $q->where('name', 'Voice Artist'); })
-            ->get();
-        if ($voiceArtistCandidates->isEmpty()) {
-            $voiceArtistCandidates = $users;
-        }
-
-        $videoEditorCandidates = User::where('tenant_id', $tenantId)
-            ->whereHas('designation', function($q) { $q->where('name', 'Video Editor'); })
-            ->get();
-        if ($videoEditorCandidates->isEmpty()) {
-            $videoEditorCandidates = $users;
-        }
+        $assignments = $task->assignments->pluck('user_id', 'designation_id')->toArray();
 
         return view('tasks.edit', compact(
             'task', 'taskTypes', 'facebookPages', 'youtubeChannels', 'areas', 'teams', 'users', 'shifts',
-            'scriptWriterCandidates', 'voiceArtistCandidates', 'videoEditorCandidates'
+            'activeColumns', 'usersByDesignation', 'assignments'
         ));
     }
 
@@ -351,26 +406,66 @@ class TaskController extends Controller
      */
     public function update(Request $request, Task $task)
     {
-        $request->validate([
+        $tenantConfig = Auth::user()->tenant->task_form_config ?? [];
+
+        $rules = [
             'title' => 'required|string|max:500',
-            'task_type_id' => 'required|exists:task_types,id',
-            'facebook_url' => 'nullable|url|max:2048',
-            'facebook_page_id' => 'nullable|exists:facebook_pages,id',
-            'youtube_url' => 'nullable|url|max:2048',
-            'youtube_channel_id' => 'nullable|exists:youtube_channels,id',
-            'on_air_time' => 'required|string|max:50',
-            'on_air_date' => 'required|date',
-            'area_id' => 'nullable|exists:areas,id',
-            'team_id' => 'nullable|exists:teams,id',
-            'script_by' => 'nullable|exists:users,id',
-            'voice_by' => 'nullable|exists:users,id',
-            'video_edit_by' => 'nullable|exists:users,id',
             'tags' => 'nullable|string|max:255',
             'remarks' => 'nullable|string',
-            'shift_id' => 'nullable|exists:shifts,id',
             'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'script_file' => 'nullable|file|mimes:docx,pdf,txt,doc|max:5120',
-        ]);
+            'staff_assignments' => 'nullable|array',
+            'staff_assignments.*' => 'nullable|exists:users,id',
+        ];
+
+        $fieldsToMap = [
+            'task_type_id' => 'exists:task_types,id',
+            'facebook_url' => 'url|max:2048',
+            'facebook_page_id' => 'exists:facebook_pages,id',
+            'youtube_url' => 'url|max:2048',
+            'youtube_channel_id' => 'exists:youtube_channels,id',
+            'on_air_time' => 'string|max:50',
+            'on_air_date' => 'date',
+            'area_id' => 'exists:areas,id',
+            'team_id' => 'exists:teams,id',
+            'shift_id' => 'exists:shifts,id',
+        ];
+
+        foreach ($fieldsToMap as $field => $baseRule) {
+            $visible = $tenantConfig[$field]['visible'] ?? true;
+            $required = $tenantConfig[$field]['required'] ?? false;
+
+            if ($visible && $required) {
+                $rules[$field] = 'required|' . $baseRule;
+            } else {
+                $rules[$field] = 'nullable|' . $baseRule;
+            }
+        }
+
+        $fileFields = ['thumbnail', 'script_file'];
+        foreach ($fileFields as $field) {
+            $visible = $tenantConfig[$field]['visible'] ?? true;
+            $required = $tenantConfig[$field]['required'] ?? false;
+            if ($visible && $required) {
+                $rules[$field] = str_replace('nullable', 'required', $rules[$field]);
+            }
+        }
+
+        // Custom fields validation
+        foreach ($tenantConfig as $key => $fieldVal) {
+            if ($fieldVal['is_custom'] ?? false) {
+                $visible = $fieldVal['visible'] ?? true;
+                $required = $fieldVal['required'] ?? false;
+
+                if ($visible && $required) {
+                    $rules["custom_fields.{$key}"] = 'required';
+                } else {
+                    $rules["custom_fields.{$key}"] = 'nullable';
+                }
+            }
+        }
+
+        $request->validate($rules);
 
         $wasMissingLinks = empty($task->facebook_url) && empty($task->youtube_url);
 
@@ -392,6 +487,24 @@ class TaskController extends Controller
         }
 
         $task->update($data);
+
+        // Sync staff assignments
+        if ($request->has('staff_assignments')) {
+            $task->assignments()->delete();
+            foreach ($request->staff_assignments as $designationId => $userId) {
+                if ($userId) {
+                    \App\Models\TaskAssignment::create([
+                        'task_id' => $task->id,
+                        'designation_id' => $designationId,
+                        'user_id' => $userId,
+                    ]);
+                }
+            }
+        }
+
+        // Sync stats if API credentials are set
+        $syncService = new \App\Services\SocialMediaSyncService();
+        $syncService->syncTask($task);
 
         $nowHasLinks = !empty($task->facebook_url) || !empty($task->youtube_url);
         if ($wasMissingLinks && $nowHasLinks) {
@@ -522,6 +635,30 @@ class TaskController extends Controller
                 'success' => false,
                 'message' => 'Error: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Instantly sync views and likes stats for a single task.
+     */
+    public function syncSingleTask(Task $task)
+    {
+        $tenant = Auth::user()->tenant;
+        if (!$tenant) {
+            return redirect()->back()->with('error', 'No tenant associated with your account.');
+        }
+
+        if (!$tenant->youtube_api_key && !$tenant->facebook_page_access_token) {
+            return redirect()->back()->with('error', 'Please configure your API keys in settings first.');
+        }
+
+        $syncService = new \App\Services\SocialMediaSyncService();
+        $result = $syncService->syncTask($task);
+
+        if ($result['success']) {
+            return redirect()->back()->with('success', 'Social media stats updated successfully!');
+        } else {
+            return redirect()->back()->with('error', 'Sync encountered issues: ' . $result['error']);
         }
     }
 }

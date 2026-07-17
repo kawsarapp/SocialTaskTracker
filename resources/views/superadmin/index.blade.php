@@ -33,7 +33,7 @@
                             @enderror
                         </div>
 
-                        <div class="mb-6">
+                        <div class="mb-4">
                             <label for="slug" class="block text-sm font-semibold text-gray-600 mb-2">Subdomain/Slug</label>
                             <input type="text" name="slug" id="slug" required placeholder="e.g., dbc-news" 
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
@@ -43,8 +43,40 @@
                             @enderror
                         </div>
 
+                        <!-- Owner Admin Account Details -->
+                        <div class="border-t border-gray-100 pt-4 mt-4">
+                            <h4 class="text-sm font-bold text-gray-700 mb-3">Owner/Admin Account Details</h4>
+                            
+                            <div class="mb-4">
+                                <label for="admin_name" class="block text-xs font-semibold text-gray-600 mb-1.5">Owner Name</label>
+                                <input type="text" name="admin_name" id="admin_name" required placeholder="e.g. John Doe" 
+                                    class="w-full text-sm border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                                @error('admin_name')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="admin_email" class="block text-xs font-semibold text-gray-600 mb-1.5">Owner Email Address</label>
+                                <input type="email" name="admin_email" id="admin_email" required placeholder="e.g. admin@example.com" 
+                                    class="w-full text-sm border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                                @error('admin_email')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div class="mb-6">
+                                <label for="admin_password" class="block text-xs font-semibold text-gray-600 mb-1.5">Owner Password</label>
+                                <input type="password" name="admin_password" id="admin_password" required placeholder="Min 8 characters" 
+                                    class="w-full text-sm border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                                @error('admin_password')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+                        </div>
+
                         <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow transition ease-in-out duration-150">
-                            Add Tenant
+                            Add Tenant & Create Admin
                         </button>
                     </form>
                 </div>

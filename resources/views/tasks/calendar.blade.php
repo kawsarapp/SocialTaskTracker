@@ -14,9 +14,15 @@
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
 
+    @php
+        $formConfig = Auth::user()->tenant->task_form_config ?? [];
+        $customFieldsMeta = collect($formConfig)->filter(fn($f) => $f['is_custom'] ?? false)->toArray();
+    @endphp
+
     <div class="py-8" x-data="{ 
         showModal: false,
-        task: {}
+        task: {},
+        customFieldsMeta: {{ json_encode($customFieldsMeta) }}
     }">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-gray-100 p-6">
@@ -61,6 +67,15 @@
                                 <p class="text-xs text-gray-400 font-bold uppercase">Team Assignment</p>
                                 <p class="font-semibold text-gray-800" x-text="task.team || 'None'"></p>
                             </div>
+                            <!-- Custom Fields -->
+                            <template x-for="(meta, key) in customFieldsMeta" :key="key">
+                                <template x-if="task.custom_fields && task.custom_fields[key]">
+                                    <div>
+                                        <p class="text-xs text-gray-400 font-bold uppercase" x-text="meta.label"></p>
+                                        <p class="font-semibold text-gray-800" x-text="task.custom_fields[key]"></p>
+                                    </div>
+                                </template>
+                            </template>
                         </div>
 
                         <hr class="border-gray-100">
@@ -69,18 +84,15 @@
                         <div>
                             <p class="text-xs text-gray-400 font-bold uppercase mb-2">Assigned Staff</p>
                             <div class="grid grid-cols-3 gap-2">
-                                <div class="bg-slate-50 p-2 rounded border border-slate-100 text-center">
-                                    <p class="text-[10px] text-gray-400 font-bold">Script</p>
-                                    <p class="font-semibold text-gray-700 text-xs truncate" x-text="task.script_by"></p>
-                                </div>
-                                <div class="bg-slate-50 p-2 rounded border border-slate-100 text-center">
-                                    <p class="text-[10px] text-gray-400 font-bold">Voice</p>
-                                    <p class="font-semibold text-gray-700 text-xs truncate" x-text="task.voice_by"></p>
-                                </div>
-                                <div class="bg-slate-50 p-2 rounded border border-slate-100 text-center">
-                                    <p class="text-[10px] text-gray-400 font-bold">Video Edit</p>
-                                    <p class="font-semibold text-gray-700 text-xs truncate" x-text="task.video_edit_by"></p>
-                                </div>
+                                <template x-for="assign in task.assignments || []" :key="assign.role">
+                                    <div class="bg-slate-50 p-2 rounded border border-slate-100 text-center">
+                                        <p class="text-[10px] text-gray-400 font-bold" x-text="assign.role"></p>
+                                        <p class="font-semibold text-gray-700 text-xs truncate" x-text="assign.name"></p>
+                                    </div>
+                                </template>
+                                <template x-if="!(task.assignments?.length)">
+                                    <p class="text-xs text-gray-400 italic col-span-3">No staff assigned to this task.</p>
+                                </template>
                             </div>
                         </div>
 

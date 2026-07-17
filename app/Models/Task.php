@@ -23,19 +23,25 @@ class Task extends Model
         'on_air_date',
         'area_id',
         'team_id',
-        'script_by',
-        'voice_by',
-        'video_edit_by',
         'tags',
         'remarks',
         'entry_by',
         'shift_id',
         'thumbnail_path',
         'script_path',
+        'views',
+        'likes',
+        'reach',
+        'api_sync_error',
+        'custom_fields',
     ];
 
     protected $casts = [
         'on_air_date' => 'date',
+        'views' => 'integer',
+        'likes' => 'integer',
+        'reach' => 'integer',
+        'custom_fields' => 'array',
     ];
 
     protected static function booted()
@@ -129,19 +135,51 @@ class Task extends Model
         return $this->belongsTo(Team::class);
     }
 
-    public function scriptWriter(): BelongsTo
+    public function assignments(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->belongsTo(User::class, 'script_by');
+        return $this->hasMany(TaskAssignment::class);
     }
 
-    public function voiceArtist(): BelongsTo
+    public function scriptWriter()
     {
-        return $this->belongsTo(User::class, 'voice_by');
+        return $this->hasOneThrough(
+            User::class,
+            TaskAssignment::class,
+            'task_id',
+            'id',
+            'id',
+            'user_id'
+        )->whereHas('designation', function ($q) {
+            $q->where('name', 'Script Writer');
+        });
     }
 
-    public function videoEditor(): BelongsTo
+    public function voiceArtist()
     {
-        return $this->belongsTo(User::class, 'video_edit_by');
+        return $this->hasOneThrough(
+            User::class,
+            TaskAssignment::class,
+            'task_id',
+            'id',
+            'id',
+            'user_id'
+        )->whereHas('designation', function ($q) {
+            $q->where('name', 'Voice Artist');
+        });
+    }
+
+    public function videoEditor()
+    {
+        return $this->hasOneThrough(
+            User::class,
+            TaskAssignment::class,
+            'task_id',
+            'id',
+            'id',
+            'user_id'
+        )->whereHas('designation', function ($q) {
+            $q->where('name', 'Video Editor');
+        });
     }
 
     public function entryUser(): BelongsTo

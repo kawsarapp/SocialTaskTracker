@@ -12,7 +12,17 @@
         </div>
     </x-slot>
 
-    <div class="py-6" x-data="{ showMoreFilters: false, showModal: false, activeTask: null }">
+    @php
+        $formConfig = Auth::user()->tenant->task_form_config ?? [];
+        $customFieldsMeta = collect($formConfig)->filter(fn($f) => $f['is_custom'] ?? false)->toArray();
+    @endphp
+
+    <div class="py-6" x-data="{ 
+        showMoreFilters: false, 
+        showModal: false, 
+        activeTask: null,
+        customFieldsMeta: {{ json_encode($customFieldsMeta) }}
+    }">
         <div class="max-w-[1600px] mx-auto sm:px-6 lg:px-8">
             
             <!-- Success Toast -->
@@ -210,9 +220,9 @@
                                 <th class="py-3 px-4 border-b border-gray-100 text-center">Youtube Link</th>
                                 <th class="py-3 px-4 border-b border-gray-100">News Source</th>
                                 <th class="py-3 px-4 border-b border-gray-100">Tag</th>
-                                <th class="py-3 px-4 border-b border-gray-100">Script</th>
-                                <th class="py-3 px-4 border-b border-gray-100">Voice</th>
-                                <th class="py-3 px-4 border-b border-gray-100">Video Edit</th>
+                                @foreach($activeColumns as $col)
+                                    <th class="py-3 px-4 border-b border-gray-100 whitespace-nowrap text-center">{{ $col->name }}</th>
+                                @endforeach
                                 <th class="py-3 px-4 border-b border-gray-100 text-center w-24">Actions</th>
                             </tr>
                         </thead>
@@ -267,13 +277,33 @@
                                     <!-- FB Link Column -->
                                     <td class="py-4 px-4 text-center">
                                         @if($task->facebook_url)
-                                            <div class="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-semibold border border-blue-100 hover:bg-blue-100 transition">
-                                                <a href="{{ $task->facebook_url }}" target="_blank" class="truncate max-w-[80px]">
-                                                    {{ $task->facebookPage->name ?? 'Facebook' }}
-                                                </a>
-                                                <button onclick="navigator.clipboard.writeText('{{ $task->facebook_url }}'); alert('Link copied!')" class="text-blue-400 hover:text-blue-700">
-                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-                                                </button>
+                                            <div class="flex flex-col items-center gap-1">
+                                                <div class="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-semibold border border-blue-100 hover:bg-blue-100 transition">
+                                                    <a href="{{ $task->facebook_url }}" target="_blank" class="truncate max-w-[80px]">
+                                                        {{ $task->facebookPage->name ?? 'Facebook' }}
+                                                    </a>
+                                                    <button onclick="navigator.clipboard.writeText('{{ $task->facebook_url }}'); alert('Link copied!')" class="text-blue-400 hover:text-blue-700">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                                                    </button>
+                                                </div>
+                                                <div class="flex items-center justify-center gap-1.5 mt-0.5">
+                                                    @if($task->views > 0 || $task->reach > 0)
+                                                        <span class="text-[10px] text-gray-500 font-semibold" title="Views | Reach">
+                                                            👁️ {{ number_format($task->views) }} | 📢 {{ number_format($task->reach) }}
+                                                        </span>
+                                                    @endif
+                                                    @if(Auth::user()->tenant?->facebook_page_access_token)
+                                                        <form action="{{ route('tasks.sync-stats', $task->id) }}" method="POST" class="inline">
+                                                            @csrf
+                                                            <button type="submit" class="text-gray-400 hover:text-blue-600 transition" title="Sync Facebook Stats">
+                                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89H18v3z"></path></svg>
+                                                            </button>
+                                                        </form>
+                                                    @endif
+                                                    @if($task->api_sync_error && str_contains($task->api_sync_error, 'Facebook'))
+                                                        <span class="text-red-500 cursor-pointer text-xs" title="{{ $task->api_sync_error }}">⚠️</span>
+                                                    @endif
+                                                </div>
                                             </div>
                                         @else
                                             <span class="text-xs text-red-500 bg-red-50 border border-red-100 px-2 py-0.5 rounded font-bold">Pending</span>
@@ -283,13 +313,33 @@
                                     <!-- YT Link Column -->
                                     <td class="py-4 px-4 text-center">
                                         @if($task->youtube_url)
-                                            <div class="inline-flex items-center gap-1 bg-rose-50 text-rose-700 px-2 py-1 rounded text-xs font-semibold border border-rose-100 hover:bg-rose-100 transition">
-                                                <a href="{{ $task->youtube_url }}" target="_blank" class="truncate max-w-[80px]">
-                                                    {{ $task->youtubeChannel->name ?? 'Youtube' }}
-                                                </a>
-                                                <button onclick="navigator.clipboard.writeText('{{ $task->youtube_url }}'); alert('Link copied!')" class="text-rose-400 hover:text-rose-700">
-                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-                                                </button>
+                                            <div class="flex flex-col items-center gap-1">
+                                                <div class="inline-flex items-center gap-1 bg-rose-50 text-rose-700 px-2 py-1 rounded text-xs font-semibold border border-rose-100 hover:bg-rose-100 transition">
+                                                    <a href="{{ $task->youtube_url }}" target="_blank" class="truncate max-w-[80px]">
+                                                        {{ $task->youtubeChannel->name ?? 'Youtube' }}
+                                                    </a>
+                                                    <button onclick="navigator.clipboard.writeText('{{ $task->youtube_url }}'); alert('Link copied!')" class="text-rose-400 hover:text-rose-700">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                                                    </button>
+                                                </div>
+                                                <div class="flex items-center justify-center gap-1.5 mt-0.5">
+                                                    @if($task->views > 0 || $task->likes > 0)
+                                                        <span class="text-[10px] text-gray-500 font-semibold" title="Views | Likes">
+                                                            👁️ {{ number_format($task->views) }} | 👍 {{ number_format($task->likes) }}
+                                                        </span>
+                                                    @endif
+                                                    @if(Auth::user()->tenant?->youtube_api_key)
+                                                        <form action="{{ route('tasks.sync-stats', $task->id) }}" method="POST" class="inline">
+                                                            @csrf
+                                                            <button type="submit" class="text-gray-400 hover:text-rose-600 transition" title="Sync YouTube Stats">
+                                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89H18v3z"></path></svg>
+                                                            </button>
+                                                        </form>
+                                                    @endif
+                                                    @if($task->api_sync_error && str_contains($task->api_sync_error, 'YouTube'))
+                                                        <span class="text-red-500 cursor-pointer text-xs" title="{{ $task->api_sync_error }}">⚠️</span>
+                                                    @endif
+                                                </div>
                                             </div>
                                         @else
                                             <span class="text-xs text-red-500 bg-red-50 border border-red-100 px-2 py-0.5 rounded font-bold">Pending</span>
@@ -312,38 +362,20 @@
                                         {{ $task->tags ? $task->tags : '-' }}
                                     </td>
                                     
-                                    <!-- Script role -->
-                                    <td class="py-4 px-4">
-                                        @if($task->scriptWriter)
-                                            <span class="inline-flex bg-slate-50 border border-slate-200 px-2 py-0.5 rounded text-xs font-semibold text-gray-700">
-                                                {{ $task->scriptWriter->name }}
-                                            </span>
-                                        @else
-                                            <span class="text-gray-300 text-xs">-</span>
-                                        @endif
-                                    </td>
-                                    
-                                    <!-- Voice role -->
-                                    <td class="py-4 px-4">
-                                        @if($task->voiceArtist)
-                                            <span class="inline-flex bg-slate-50 border border-slate-200 px-2 py-0.5 rounded text-xs font-semibold text-gray-700">
-                                                {{ $task->voiceArtist->name }}
-                                            </span>
-                                        @else
-                                            <span class="text-gray-300 text-xs">-</span>
-                                        @endif
-                                    </td>
-                                    
-                                    <!-- Video Edit role -->
-                                    <td class="py-4 px-4">
-                                        @if($task->videoEditor)
-                                            <span class="inline-flex bg-slate-50 border border-slate-200 px-2 py-0.5 rounded text-xs font-semibold text-gray-700">
-                                                {{ $task->videoEditor->name }}
-                                            </span>
-                                        @else
-                                            <span class="text-gray-300 text-xs">-</span>
-                                        @endif
-                                    </td>
+                                    @foreach($activeColumns as $col)
+                                        @php
+                                            $assignedUser = $task->assignments->first(fn($a) => $a->designation_id == $col->id)?->user;
+                                        @endphp
+                                        <td class="py-4 px-4 text-center">
+                                            @if($assignedUser)
+                                                <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded" style="background-color: {{ $col->color ?? '#e2e8f0' }}; color: #1e293b; border: 1px solid #cbd5e1;">
+                                                    {{ $assignedUser->name }}
+                                                </span>
+                                            @else
+                                                <span class="text-gray-300 text-xs">-</span>
+                                            @endif
+                                        </td>
+                                    @endforeach
                                     
                                     <!-- Actions (Edit/Delete) -->
                                     <td class="py-4 px-4 text-center">
@@ -360,9 +392,7 @@
                                                         time: '{{ $task->on_air_time }}', 
                                                         area: '{{ $task->area->name ?? 'General' }}', 
                                                         team: '{{ $task->team->name ?? 'General' }}', 
-                                                        scriptWriter: '{{ $task->scriptWriter->name ?? 'Not Assigned' }}', 
-                                                        voiceArtist: '{{ $task->voiceArtist->name ?? 'Not Assigned' }}', 
-                                                        videoEditor: '{{ $task->videoEditor->name ?? 'Not Assigned' }}', 
+                                                        assignments: {!! json_encode($task->assignments->map(fn($a) => ['role' => $a->designation->name, 'name' => $a->user->name])->toArray()) !!},
                                                         tags: '{{ addslashes($task->tags ?? '') }}', 
                                                         remarks: '{{ addslashes(str_replace(["\r", "\n", "\'"], [" ", " ", "\\'"], $task->remarks ?? "")) }}', 
                                                         facebookPage: '{{ $task->facebookPage->name ?? "" }}', 
@@ -373,7 +403,12 @@
                                                         script: '{{ $task->script_path ? asset('storage/' . $task->script_path) : "" }}', 
                                                         shift: '{{ $task->shift->name ?? "General" }}',
                                                         editUrl: '{{ route('tasks.edit', $task->id) }}',
-                                                        canEdit: {{ Auth::user()->can('update', $task) ? 'true' : 'false' }}
+                                                        canEdit: {{ Auth::user()->can('update', $task) ? 'true' : 'false' }},
+                                                        views: '{{ number_format($task->views) }}',
+                                                        likes: '{{ number_format($task->likes) }}',
+                                                        reach: '{{ number_format($task->reach) }}',
+                                                        apiSyncError: '{{ addslashes($task->api_sync_error ?? "") }}',
+                                                        customFields: {!! json_encode($task->custom_fields ?? []) !!}
                                                     }; showModal = true" 
                                                     class="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-1.5 rounded transition"
                                                     title="View Full Task Details">
@@ -448,6 +483,17 @@
 
                     <!-- Modal Body -->
                     <div class="p-6 space-y-6 flex-1">
+                        <!-- API Sync Warning Banner -->
+                        <template x-if="activeTask?.apiSyncError">
+                            <div class="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs flex items-start gap-2 shadow-sm">
+                                <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                <div>
+                                    <strong class="font-bold">Sync API Issue:</strong>
+                                    <span x-text="activeTask?.apiSyncError"></span>
+                                </div>
+                            </div>
+                        </template>
+
                         <!-- Title -->
                         <div>
                             <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Task Title</h4>
@@ -478,6 +524,15 @@
                                     <span class="text-xs font-bold text-gray-400 block mb-1">Tags</span>
                                     <span class="text-xs font-semibold text-emerald-600" x-text="activeTask?.tags || '-'"></span>
                                 </div>
+                                <!-- Custom Fields -->
+                                <template x-for="(meta, key) in customFieldsMeta" :key="key">
+                                    <template x-if="activeTask?.customFields && activeTask.customFields[key]">
+                                        <div>
+                                            <span class="text-xs font-bold text-gray-400 block mb-1" x-text="meta.label"></span>
+                                            <span class="text-sm font-semibold text-gray-800" x-text="activeTask.customFields[key]"></span>
+                                        </div>
+                                    </template>
+                                </template>
                             </div>
 
                             <!-- Right Column -->
@@ -485,18 +540,15 @@
                                 <div>
                                     <span class="text-xs font-bold text-gray-400 block mb-1">Assigned Staff Members</span>
                                     <div class="space-y-1.5 text-xs">
-                                        <div class="flex justify-between border-b border-gray-50 pb-1">
-                                            <span class="text-gray-500">Script:</span>
-                                            <span class="font-bold text-gray-800" x-text="activeTask?.scriptWriter"></span>
-                                        </div>
-                                        <div class="flex justify-between border-b border-gray-50 pb-1">
-                                            <span class="text-gray-500">Voiceover:</span>
-                                            <span class="font-bold text-gray-800" x-text="activeTask?.voiceArtist"></span>
-                                        </div>
-                                        <div class="flex justify-between pb-0.5">
-                                            <span class="text-gray-500">Video Edit:</span>
-                                            <span class="font-bold text-gray-800" x-text="activeTask?.videoEditor"></span>
-                                        </div>
+                                        <template x-for="assign in activeTask?.assignments || []" :key="assign.role">
+                                            <div class="flex justify-between border-b border-gray-50 pb-1">
+                                                <span class="text-gray-500" x-text="assign.role + ':'"></span>
+                                                <span class="font-bold text-gray-800" x-text="assign.name"></span>
+                                            </div>
+                                        </template>
+                                        <template x-if="!(activeTask?.assignments?.length)">
+                                            <p class="text-gray-400 italic text-[11px]">No staff assigned.</p>
+                                        </template>
                                     </div>
                                 </div>
 
@@ -522,6 +574,25 @@
                                             <template x-if="!activeTask?.youtubeUrl">
                                                 <span class="text-red-500 font-bold uppercase text-[10px]">Pending Upload ✖</span>
                                             </template>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Performance Metrics (Views, Likes, Reach) -->
+                                <div class="border-t border-gray-100 pt-3 mt-3">
+                                    <span class="text-xs font-bold text-gray-400 block mb-1.5">Performance Statistics</span>
+                                    <div class="grid grid-cols-3 gap-2 text-center">
+                                        <div class="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                            <span class="text-[10px] text-gray-400 block font-bold uppercase">Views</span>
+                                            <span class="text-sm font-bold text-gray-800" x-text="activeTask?.views || 0"></span>
+                                        </div>
+                                        <div class="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                            <span class="text-[10px] text-gray-400 block font-bold uppercase">Likes</span>
+                                            <span class="text-sm font-bold text-gray-800" x-text="activeTask?.likes || 0"></span>
+                                        </div>
+                                        <div class="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                            <span class="text-[10px] text-gray-400 block font-bold uppercase">Reach</span>
+                                            <span class="text-sm font-bold text-gray-800" x-text="activeTask?.reach || 0"></span>
                                         </div>
                                     </div>
                                 </div>

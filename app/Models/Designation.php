@@ -11,10 +11,11 @@ class Designation extends Model
 {
     use HasFactory, BelongsToTenant;
 
-    protected $fillable = ['tenant_id', 'name', 'color', 'permissions'];
+    protected $fillable = ['tenant_id', 'name', 'color', 'permissions', 'is_task_column'];
 
     protected $casts = [
         'permissions' => 'array',
+        'is_task_column' => 'boolean',
     ];
 
     public function users(): HasMany

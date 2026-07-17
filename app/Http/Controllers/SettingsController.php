@@ -261,4 +261,114 @@ class SettingsController extends Controller
         $designation->delete();
         return redirect()->route('settings.index')->with('success', 'Designation deleted successfully!');
     }
+
+    /**
+     * Save YouTube and Facebook API credentials and sync interval frequency.
+     */
+    public function updateApiSettings(Request $request)
+    {
+        $this->checkAccess();
+
+        $request->validate([
+            'youtube_api_key' => 'nullable|string|max:255',
+            'facebook_page_access_token' => 'nullable|string|max:2048',
+            'api_sync_interval' => 'required|integer|in:0,6,12,24',
+        ]);
+
+        $tenant = Auth::user()->tenant;
+        if ($tenant) {
+            $tenant->update([
+                'youtube_api_key' => $request->youtube_api_key,
+                'facebook_page_access_token' => $request->facebook_page_access_token,
+                'api_sync_interval' => (int)$request->api_sync_interval,
+            ]);
+            return redirect()->route('settings.index')->with('success', 'Social API Integration settings updated successfully!');
+        }
+
+        return redirect()->route('settings.index')->with('error', 'No tenant associated with this account.');
+    }
+
+    /**
+     * Trigger manual bulk synchronization for all recent tasks.
+     */
+    public function triggerBulkSync()
+    {
+        $this->checkAccess();
+
+        $tenant = Auth::user()->tenant;
+        if (!$tenant) {
+            return redirect()->route('settings.index')->with('error', 'No tenant associated with this account.');
+        }
+
+        if (!$tenant->youtube_api_key && !$tenant->facebook_page_access_token) {
+            return redirect()->route('settings.index')->with('error', 'Please configure your API keys first.');
+        }
+
+        try {
+            $syncService = new \App\Services\SocialMediaSyncService();
+            $syncedCount = $syncService->syncTenantTasks($tenant, 7);
+
+            $tenant->update(['last_api_sync_at' => now()]);
+
+            return redirect()->route('settings.index')->with('success', "Bulk sync completed successfully! Sync processed recent tasks (Updated: {$syncedCount}).");
+        } catch (\Exception $e) {
+            return redirect()->route('settings.index')->with('error', 'Sync failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Toggle whether a designation appears as a dynamic column on the Task table.
+     */
+    public function toggleTaskColumn(\App\Models\Designation $designation)
+    {
+        $this->checkAccess();
+        
+        $designation->update([
+            'is_task_column' => !$designation->is_task_column
+        ]);
+
+        $status = $designation->is_task_column ? 'visible as a task column' : 'hidden from task columns';
+        return redirect()->route('settings.index')->with('success', "Designation '{$designation->name}' is now {$status}!");
+    }
+
+    /**
+     * Update Task Form Fields Visibility & Validation Requirements Configuration
+     */
+    public function updateTaskFormConfig(\Illuminate\Http\Request $request)
+    {
+        $this->checkAccess();
+        $tenant = Auth::user()->tenant;
+        if (!$tenant) {
+            return redirect()->route('settings.index')->with('error', 'No tenant associated.');
+        }
+
+        $fieldsConfig = [];
+        $fieldsInput = $request->input('fields', []);
+
+        foreach ($fieldsInput as $fieldKey => $fieldData) {
+            $visible = isset($fieldData['visible']) && $fieldData['visible'] == '1';
+            $required = isset($fieldData['required']) && $fieldData['required'] == '1';
+            $sortOrder = isset($fieldData['sort_order']) ? (int)$fieldData['sort_order'] : 99;
+            $isCustom = isset($fieldData['is_custom']) && $fieldData['is_custom'] == '1';
+            $label = isset($fieldData['label']) ? strip_tags($fieldData['label']) : '';
+            $type = isset($fieldData['type']) ? $fieldData['type'] : 'text';
+
+            if ($required) {
+                $visible = true;
+            }
+
+            $fieldsConfig[$fieldKey] = [
+                'visible' => $visible,
+                'required' => $required,
+                'sort_order' => $sortOrder,
+                'is_custom' => $isCustom,
+                'label' => $label,
+                'type' => $type,
+            ];
+        }
+
+        $tenant->update(['task_form_config' => $fieldsConfig]);
+
+        return redirect()->route('settings.index')->with('success', 'Task form layout configuration updated successfully!');
+    }
 }

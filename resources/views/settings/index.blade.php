@@ -145,6 +145,88 @@
                         </button>
                     </form>
                 </div>
+
+                <!-- API Integration Settings Card -->
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-gray-100 p-6 mt-8">
+                    <h3 class="text-base font-bold text-gray-800 mb-2 flex items-center">
+                        <svg class="w-5 h-5 text-indigo-500 me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                        Social API Integration
+                    </h3>
+                    <p class="text-xs text-gray-400 mb-6">Auto-sync video views, likes, and reach on YouTube and Facebook page clips.</p>
+                    
+                    <form action="{{ route('settings.api-keys.update') }}" method="POST" class="space-y-4">
+                        @csrf
+                        <!-- YouTube API Key -->
+                        <div>
+                            <label for="youtube_api_key" class="block text-xs font-bold text-gray-500 mb-1">YouTube API Key</label>
+                            <input type="text" name="youtube_api_key" id="youtube_api_key" 
+                                value="{{ old('youtube_api_key', Auth::user()->tenant?->youtube_api_key) }}"
+                                placeholder="AIzaSy..." 
+                                class="w-full border-gray-200 rounded-lg text-xs focus:border-indigo-500 focus:ring focus:ring-indigo-100">
+                            @error('youtube_api_key')
+                                <p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <!-- Facebook Page Access Token -->
+                        <div>
+                            <label for="facebook_page_access_token" class="block text-xs font-bold text-gray-500 mb-1">Facebook Page Access Token</label>
+                            <textarea name="facebook_page_access_token" id="facebook_page_access_token" rows="3"
+                                placeholder="EAAG..." 
+                                class="w-full border-gray-200 rounded-lg text-xs focus:border-indigo-500 focus:ring focus:ring-indigo-100">{{ old('facebook_page_access_token', Auth::user()->tenant?->facebook_page_access_token) }}</textarea>
+                            @error('facebook_page_access_token')
+                                <p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <!-- Sync Interval Dropdown -->
+                        <div>
+                            <label for="api_sync_interval" class="block text-xs font-bold text-gray-500 mb-1">Auto Sync Frequency (Quota Guard)</label>
+                            <select name="api_sync_interval" id="api_sync_interval" 
+                                class="w-full border-gray-200 rounded-lg text-xs focus:border-indigo-500 focus:ring focus:ring-indigo-100">
+                                @php
+                                    $interval = Auth::user()->tenant?->api_sync_interval ?? 0;
+                                @endphp
+                                <option value="0" {{ $interval == 0 ? 'selected' : '' }}>Manual Sync Only (Recommended to save quota)</option>
+                                <option value="6" {{ $interval == 6 ? 'selected' : '' }}>Every 6 Hours</option>
+                                <option value="12" {{ $interval == 12 ? 'selected' : '' }}>Every 12 Hours</option>
+                                <option value="24" {{ $interval == 24 ? 'selected' : '' }}>Every 24 Hours</option>
+                            </select>
+                            @error('api_sync_interval')
+                                <p class="text-red-500 text-[10px] mt-0.5">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="flex gap-2">
+                            <button type="submit" class="flex-1 bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 rounded-lg text-xs shadow transition">
+                                Save API Keys
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Manual Bulk Sync Form -->
+                    @if(Auth::user()->tenant?->youtube_api_key || Auth::user()->tenant?->facebook_page_access_token)
+                        <div class="mt-6 pt-6 border-t border-gray-100">
+                            <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">On-Demand Bulk Sync</h4>
+                            <p class="text-[11px] text-gray-400 mb-4">Trigger an immediate manual update of stats for all tasks logged in the last 7 days.</p>
+                            
+                            @if(Auth::user()->tenant?->last_api_sync_at)
+                                <div class="mb-3 text-[11px] text-gray-500 flex items-center bg-gray-50 p-2 rounded border border-gray-100">
+                                    <svg class="w-3.5 h-3.5 text-gray-400 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    Last Bulk Sync: {{ Auth::user()->tenant->last_api_sync_at->format('d M Y h:i A') }}
+                                </div>
+                            @endif
+
+                            <form action="{{ route('settings.api-keys.sync') }}" method="POST">
+                                @csrf
+                                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-lg text-xs shadow transition flex items-center justify-center gap-1.5">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89H18v3z"></path></svg>
+                                    Sync All Tasks Now
+                                </button>
+                            </form>
+                        </div>
+                    @endif
+                </div>
             </div>
 
                 <!-- Right Side: Config Cards (Dynamic Fields) -->
@@ -329,6 +411,7 @@
                                     <thead>
                                         <tr class="border-b border-gray-100 text-gray-400 uppercase font-bold tracking-wider">
                                             <th class="pb-3 font-semibold">Designation</th>
+                                            <th class="pb-3 font-semibold text-center">Include as Task Column</th>
                                             <th class="pb-3 font-semibold">Assigned Permissions</th>
                                             <th class="pb-3 font-semibold text-right">Actions</th>
                                         </tr>
@@ -340,6 +423,14 @@
                                                     <span class="inline-flex items-center px-2.5 py-1 rounded text-xs font-bold border border-gray-200 shadow-sm" style="background-color: {{ $desg->color ?? '#e2e8f0' }}; color: #1e293b;">
                                                         {{ $desg->name }}
                                                     </span>
+                                                </td>
+                                                <td class="py-3 text-center">
+                                                    <form action="{{ route('settings.designations.toggle-column', $desg->id) }}" method="POST" class="inline">
+                                                        @csrf @method('PUT')
+                                                        <button type="submit" class="px-2 py-1 rounded text-[10px] font-bold shadow-sm transition {{ $desg->is_task_column ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}" title="Toggle visibility as a dashboard task column">
+                                                            {{ $desg->is_task_column ? 'Column: Active' : 'Column: Hidden' }}
+                                                        </button>
+                                                    </form>
                                                 </td>
                                                 <td class="py-3 text-gray-500">
                                                     @php
@@ -537,6 +628,226 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    @php
+                        $formConfig = Auth::user()->tenant->task_form_config ?? [];
+                    @endphp
+
+                    <!-- Task Form Fields Configuration Card -->
+                    <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-gray-100 p-6"
+                        x-data="{
+                            draggedIdx: null,
+                            fields: {{ json_encode(array_values($formConfig)) }},
+                            newFieldLabel: '',
+                            newFieldType: 'text',
+                            newFieldRequired: false,
+                            addCustomField() {
+                                let label = this.newFieldLabel.trim();
+                                if (!label) return;
+                                let key = 'custom_' + Date.now();
+                                this.fields.push({
+                                    key: key,
+                                    label: label,
+                                    type: this.newFieldType,
+                                    visible: true,
+                                    required: this.newFieldRequired,
+                                    sort_order: this.fields.length + 1,
+                                    is_custom: true
+                                });
+                                this.newFieldLabel = '';
+                                this.newFieldType = 'text';
+                                this.newFieldRequired = false;
+                            },
+                            deleteField(key) {
+                                this.fields = this.fields.filter(f => f.key !== key);
+                                this.fields.forEach((f, i) => f.sort_order = i + 1);
+                            }
+                        }">
+                        <div class="flex flex-wrap justify-between items-start gap-4 mb-4">
+                            <div>
+                                <h3 class="font-bold text-gray-800 text-base mb-2 flex items-center">
+                                    <svg class="w-5 h-5 text-indigo-500 me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                                    </svg>
+                                    Task Entry Form Configuration
+                                </h3>
+                                <p class="text-xs text-gray-400">Drag rows by handle to reorder. Toggle visibility or make fields mandatory. Add custom fields as needed.</p>
+                            </div>
+                        </div>
+
+                        <form action="{{ route('settings.task-form-config.update') }}" method="POST">
+                            @csrf
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr class="border-b border-gray-100 text-gray-400 uppercase font-bold tracking-wider">
+                                            <th class="pb-3 text-center w-12 font-semibold">Move</th>
+                                            <th class="pb-3 font-semibold">Form Field Name / Label</th>
+                                            <th class="pb-3 font-semibold">System Key / Type</th>
+                                            <th class="pb-3 font-semibold text-center w-32">Show on Form</th>
+                                            <th class="pb-3 font-semibold text-center w-40">Make Mandatory (Required)</th>
+                                            <th class="pb-3 text-center w-24 font-semibold">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-50">
+                                        <!-- Fixed Title Field (always required) -->
+                                        <tr class="bg-slate-50/50">
+                                            <td class="py-3.5 text-center text-gray-300">
+                                                <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                                            </td>
+                                            <td class="py-3.5">
+                                                <span class="font-bold text-gray-800">Task Title</span>
+                                                <span class="text-gray-400 block text-[10px]">Core content title identifier</span>
+                                            </td>
+                                            <td class="py-3.5">
+                                                <span class="text-gray-400 font-mono text-[10px]">title</span>
+                                            </td>
+                                            <td class="py-3.5 text-center">
+                                                <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-500 uppercase">Always Visible</span>
+                                            </td>
+                                            <td class="py-3.5 text-center">
+                                                <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-indigo-50 border border-indigo-100 text-indigo-700 uppercase">Always Required</span>
+                                            </td>
+                                            <td class="py-3.5 text-center text-gray-400 font-semibold text-[10px]">
+                                                System Locked
+                                            </td>
+                                        </tr>
+
+                                        <!-- Dynamic Fields (Loop through Alpine.js model) -->
+                                        <template x-for="(field, index) in fields" :key="field.key">
+                                            <tr draggable="true"
+                                                @dragstart="draggedIdx = index"
+                                                @dragover.prevent
+                                                @drop="if (draggedIdx !== null && draggedIdx !== index) {
+                                                    let moving = fields.splice(draggedIdx, 1)[0];
+                                                    fields.splice(index, 0, moving);
+                                                    fields.forEach((f, i) => f.sort_order = i + 1);
+                                                    draggedIdx = null;
+                                                }"
+                                                class="hover:bg-slate-50/80 border-b border-gray-50 transition cursor-move">
+                                                
+                                                <!-- Drag handle -->
+                                                <td class="py-3 px-2 text-center text-gray-400 hover:text-indigo-600">
+                                                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                                                    </svg>
+                                                </td>
+
+                                                <!-- Field label (Editable for custom fields) -->
+                                                <td class="py-3">
+                                                    <template x-if="!field.is_custom">
+                                                        <div>
+                                                            <span class="font-bold text-gray-800 text-xs" x-text="field.label"></span>
+                                                            <input type="hidden" :name="'fields[' + field.key + '][label]'" :value="field.label">
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="field.is_custom">
+                                                        <div class="pe-4">
+                                                            <input type="text" :name="'fields[' + field.key + '][label]'" x-model="field.label"
+                                                                class="w-full text-xs font-bold text-gray-800 border-gray-200 rounded p-1 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
+                                                        </div>
+                                                    </template>
+                                                </td>
+
+                                                <!-- Field Key / Custom Type description -->
+                                                <td class="py-3">
+                                                    <template x-if="!field.is_custom">
+                                                        <div>
+                                                            <span class="text-gray-400 font-mono text-[10px]" x-text="field.key"></span>
+                                                            <input type="hidden" :name="'fields[' + field.key + '][type]'" :value="field.type">
+                                                            <input type="hidden" :name="'fields[' + field.key + '][is_custom]'" value="0">
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="field.is_custom">
+                                                        <div>
+                                                            <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 uppercase border border-amber-100" x-text="'Custom (' + field.type + ')'"></span>
+                                                            <input type="hidden" :name="'fields[' + field.key + '][type]'" :value="field.type">
+                                                            <input type="hidden" :name="'fields[' + field.key + '][is_custom]'" value="1">
+                                                        </div>
+                                                    </template>
+                                                    <!-- Sort Order hidden input -->
+                                                    <input type="hidden" :name="'fields[' + field.key + '][sort_order]'" :value="field.sort_order">
+                                                </td>
+
+                                                <!-- Show on Form toggle checkbox -->
+                                                <td class="py-3 text-center">
+                                                    <input type="hidden" :name="'fields[' + field.key + '][visible]'" value="0">
+                                                    <input type="checkbox" :name="'fields[' + field.key + '][visible]'" value="1" x-model="field.visible"
+                                                        class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                                </td>
+
+                                                <!-- Make Mandatory toggle checkbox -->
+                                                <td class="py-3 text-center">
+                                                    <input type="hidden" :name="'fields[' + field.key + '][required]'" value="0">
+                                                    <input type="checkbox" :name="'fields[' + field.key + '][required]'" value="1" x-model="field.required"
+                                                        class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                                </td>
+
+                                                <!-- Actions (Delete for custom fields, locked icon for system ones) -->
+                                                <td class="py-3 text-center text-gray-500">
+                                                    <template x-if="!field.is_custom">
+                                                        <span class="text-[10px] text-gray-300 font-semibold flex items-center justify-center gap-1">
+                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                                                            System
+                                                        </span>
+                                                    </template>
+                                                    <template x-if="field.is_custom">
+                                                        <button type="button" @click="deleteField(field.key)" class="text-red-500 hover:text-red-700 transition" title="Delete Custom Field">
+                                                            <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                                            </svg>
+                                                        </button>
+                                                    </template>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Add Custom Field Section -->
+                            <div class="mt-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <h4 class="font-bold text-gray-700 text-xs mb-3 flex items-center">
+                                    <svg class="w-4 h-4 text-indigo-500 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    Create New Custom Field
+                                </h4>
+                                <div class="flex flex-wrap items-end gap-4 text-[11px]">
+                                    <div class="flex-1 min-w-[200px]">
+                                        <label class="block text-gray-500 font-semibold mb-1">Field Display Label</label>
+                                        <input type="text" x-model="newFieldLabel" placeholder="e.g. Video Presenter, Sponsor Name" 
+                                            class="w-full text-xs border-gray-200 rounded-lg p-2 focus:ring focus:ring-indigo-100 focus:border-indigo-500 bg-white">
+                                    </div>
+                                    <div>
+                                        <label class="block text-gray-500 font-semibold mb-1">Input Format Type</label>
+                                        <select x-model="newFieldType" 
+                                            class="text-xs border-gray-200 rounded-lg p-2 focus:ring focus:ring-indigo-100 focus:border-indigo-500 bg-white">
+                                            <option value="text">Single Line Text</option>
+                                            <option value="number">Numeric Value</option>
+                                            <option value="textarea">Paragraph / Multi-line Notes</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex items-center h-9">
+                                        <label class="inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" x-model="newFieldRequired" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                            <span class="ms-1.5 text-gray-500 font-semibold">Make Mandatory</span>
+                                        </label>
+                                    </div>
+                                    <button type="button" @click="addCustomField" 
+                                        class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold py-2 px-4 rounded-lg shadow-sm transition h-9">
+                                        + Add Field
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="mt-6 flex justify-end">
+                                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg text-xs shadow-md transition">
+                                    Save Configured Layout
+                                </button>
+                            </div>
+                        </form>
                     </div>
 
                     <!-- Row 4: Audit Activity Logs -->

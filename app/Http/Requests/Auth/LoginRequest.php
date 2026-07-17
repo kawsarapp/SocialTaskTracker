@@ -50,6 +50,14 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        $user = Auth::user();
+        if ($user && $user->tenant && !$user->tenant->is_active) {
+            Auth::logout();
+            throw ValidationException::withMessages([
+                'email' => 'Your organization is suspended. Please contact administrator.',
+            ]);
+        }
+
         RateLimiter::clear($this->throttleKey());
     }
 

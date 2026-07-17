@@ -60,11 +60,13 @@ class RegisteredUserController extends Controller
             'Content Strategist' => '#e0f2fe',
             'SEO Specialist' => '#fef2f2'
         ];
+        $columnsToEnable = ['Script Writer', 'Voice Artist', 'Video Editor', 'Graphic Designer', 'Uploader'];
         foreach ($defaultDesignations as $name => $color) {
             \App\Models\Designation::create([
                 'tenant_id' => $tenant->id,
                 'name' => $name,
                 'color' => $color,
+                'is_task_column' => in_array($name, $columnsToEnable),
             ]);
         }
 
