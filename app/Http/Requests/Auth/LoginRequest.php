@@ -51,10 +51,10 @@ class LoginRequest extends FormRequest
         }
 
         $user = Auth::user();
-        if ($user && $user->tenant && !$user->tenant->is_active) {
+        if ($user && !$user->isSuperAdmin() && $user->tenant && !$user->tenant->is_active) {
             Auth::logout();
             throw ValidationException::withMessages([
-                'email' => 'Your organization is suspended. Please contact administrator.',
+                'email' => 'Your organization account has been disabled by the administrator.',
             ]);
         }
 

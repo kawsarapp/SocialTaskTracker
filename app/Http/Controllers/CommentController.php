@@ -24,7 +24,7 @@ class CommentController extends Controller
         ]);
 
         $comment = Comment::create([
-            'tenant_id' => Auth::user()->tenant_id,
+            'tenant_id' => $task->tenant_id ?? Auth::user()->effectiveTenantId(),
             'task_id' => $task->id,
             'user_id' => Auth::id(),
             'content' => $request->content,
@@ -44,15 +44,19 @@ class CommentController extends Controller
      */
     public function poll(Request $request)
     {
-        $tenantId = Auth::user()->tenant_id;
-        $lastCommentId = $request->input('last_id', 0);
+        $tenantId = Auth::user()->effectiveTenantId();
+        $lastCommentId = (int) $request->input('last_id', 0);
 
-        // Fetch comments with ID > lastCommentId within tenant scope
-        $newComments = Comment::with(['user', 'task'])
+        // Fetch comments with ID > lastCommentId within tenant scope (limit initial seed to latest 10)
+        $query = Comment::with(['user', 'task'])
             ->where('tenant_id', $tenantId)
-            ->where('id', '>', $lastCommentId)
-            ->orderBy('id', 'asc')
-            ->get();
+            ->where('id', '>', $lastCommentId);
+
+        if ($lastCommentId === 0) {
+            $newComments = $query->orderBy('id', 'desc')->limit(10)->get()->reverse()->values();
+        } else {
+            $newComments = $query->orderBy('id', 'asc')->limit(50)->get();
+        }
 
         $formatted = $newComments->map(function ($comment) {
             return [

@@ -31,15 +31,19 @@ Route::middleware(['auth'])->group(function () {
 
     // Task Management
     Route::get('/calendar', [TaskController::class, 'calendar'])->name('tasks.calendar');
+    Route::get('/tasks/export', [TaskController::class, 'exportCsv'])->name('tasks.export');
     Route::get('/tasks/fetch-metadata', [TaskController::class, 'fetchMetadata'])->name('tasks.fetch-metadata');
+    Route::get('/tasks/comments/poll', [CommentController::class, 'poll'])->name('tasks.comments.poll');
+    Route::post('/tasks/bulk-action', [TaskController::class, 'bulkAction'])->name('tasks.bulk-action');
+    Route::patch('/tasks/{task}/quick-links', [TaskController::class, 'quickUpdateLinks'])->name('tasks.quick-links');
     Route::resource('tasks', TaskController::class);
     Route::post('/tasks/{task}/sync-stats', [TaskController::class, 'syncSingleTask'])->name('tasks.sync-stats');
     Route::post('/tasks/{task}/comments', [CommentController::class, 'store'])->name('tasks.comments.store');
-    Route::get('/tasks/comments/poll', [CommentController::class, 'poll'])->name('tasks.comments.poll');
     Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
 
     // Tenant Configuration Panel (Admins and Super Admins)
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+    Route::post('/settings/switch-tenant', [SettingsController::class, 'switchTenant'])->name('settings.switch-tenant');
     Route::post('/settings/task-types', [SettingsController::class, 'storeTaskType'])->name('settings.task-types.store');
     Route::delete('/settings/task-types/{taskType}', [SettingsController::class, 'destroyTaskType'])->name('settings.task-types.destroy');
     

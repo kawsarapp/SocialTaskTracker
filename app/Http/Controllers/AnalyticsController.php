@@ -26,7 +26,7 @@ class AnalyticsController extends Controller
     public function index()
     {
         $this->checkAccess();
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = Auth::user()->effectiveTenantId();
 
         // 1. Content Type breakdown (Doughnut Chart)
         $taskTypeStats = TaskType::all()->map(function ($type) use ($tenantId) {

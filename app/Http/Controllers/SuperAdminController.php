@@ -61,6 +61,7 @@ class SuperAdminController extends Controller
                 'name' => $name,
                 'color' => $color,
                 'is_task_column' => in_array($name, $columnsToEnable),
+                'permissions' => ['view_tasks', 'create_tasks', 'quick_update_links', 'view_calendar'],
             ]);
         }
 

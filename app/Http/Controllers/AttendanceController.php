@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\Attendance;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -30,12 +32,14 @@ class AttendanceController extends Controller
         }
 
         Attendance::create([
-            'tenant_id' => Auth::user()->tenant_id,
+            'tenant_id' => Auth::user()->effectiveTenantId(),
             'user_id' => $userId,
             'date' => $today,
             'check_in' => now(),
             'status' => 'present',
         ]);
+
+        ActivityLog::record('attendance_checkin', Auth::user()->name . ' checked in (' . now()->format('h:i A') . ')');
 
         return redirect()->back()->with('success', 'Checked in successfully!');
     }
@@ -64,6 +68,8 @@ class AttendanceController extends Controller
             'check_out' => now(),
         ]);
 
+        ActivityLog::record('attendance_checkout', Auth::user()->name . ' checked out (' . now()->format('h:i A') . ')');
+
         return redirect()->back()->with('success', 'Checked out successfully!');
     }
 
@@ -72,9 +78,9 @@ class AttendanceController extends Controller
      */
     public function storeLeave(Request $request)
     {
-        // Enforce role authorization (Only Admins and Team Leaders)
+        // Enforce role authorization (Only Admins, Team Leaders, or manage_settings)
         $user = Auth::user();
-        if ($user->role !== 'admin' && $user->role !== 'team_leader' && !$user->isSuperAdmin()) {
+        if (!$user->isAdmin() && !$user->isTeamLeader() && !$user->isSuperAdmin() && !$user->hasPermission('manage_settings')) {
             abort(403, 'Unauthorized action.');
         }
 
@@ -84,10 +90,12 @@ class AttendanceController extends Controller
             'remarks' => 'required|string|max:500',
         ]);
 
+        $staffUser = User::find($request->user_id);
+
         // Find or create leave record for the date
         Attendance::updateOrCreate(
             [
-                'tenant_id' => $user->tenant_id,
+                'tenant_id' => $staffUser?->tenant_id ?? $user->effectiveTenantId(),
                 'user_id' => $request->user_id,
                 'date' => $request->date,
             ],
@@ -98,6 +106,9 @@ class AttendanceController extends Controller
                 'check_out' => null,
             ]
         );
+
+        $staffName = $staffUser?->name ?? "User #{$request->user_id}";
+        ActivityLog::record('leave_requested', "Marked {$staffName} on leave for {$request->date}");
 
         return redirect()->back()->with('success', 'Staff marked on leave successfully.');
     }

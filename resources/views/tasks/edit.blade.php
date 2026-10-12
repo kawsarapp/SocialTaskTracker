@@ -9,18 +9,18 @@
         $formConfig = Auth::user()->tenant->task_form_config ?? [];
     @endphp
 
-    <div class="py-8">
-        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-gray-100 flex flex-col md:flex-row">
+    <div class="py-6 sm:py-8">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-100 flex flex-col md:flex-row">
                 
                 <!-- Left Info Panel -->
-                <div class="bg-gray-50 p-6 md:w-1/4 border-b md:border-b-0 md:border-e border-gray-100">
+                <div class="bg-gray-50 p-5 sm:p-6 md:w-1/4 border-b md:border-b-0 md:border-e border-gray-100">
                     <h3 class="font-bold text-gray-800 text-lg mb-2">Edit Task</h3>
                     <p class="text-sm text-gray-500">Modify the fields below to update task details.</p>
                 </div>
 
                 <!-- Form Panel -->
-                <div class="p-8 md:w-3/4">
+                <div class="p-5 sm:p-8 md:w-3/4">
                     <form action="{{ route('tasks.update', $task->id) }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         @method('PUT')
@@ -118,9 +118,10 @@
                                             <label class="block text-sm font-semibold text-gray-700">
                                                 Select Facebook Page @if($required)<span class="text-rose-500 font-bold">*</span>@endif
                                             </label>
-                                            <button type="button" @click="selectedPage = ''; $refs.fbPageRadios.querySelectorAll('input').forEach(i => i.checked = false)" class="text-xs text-indigo-500 hover:text-indigo-700 font-semibold">clear</button>
+                                            <button type="button" @click="selectedPage = ''; $refs.fbPageRadios.querySelectorAll('input[type=radio]').forEach(i => i.checked = false)" class="text-xs text-indigo-500 hover:text-indigo-700 font-semibold">clear</button>
                                         </div>
-                                        <div ref="fbPageRadios" class="flex flex-wrap gap-3 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                        <input type="hidden" name="facebook_page_id" value="">
+                                        <div x-ref="fbPageRadios" class="flex flex-wrap gap-3 bg-gray-50 p-3 rounded-lg border border-gray-100">
                                             @foreach($facebookPages as $page)
                                                 <label class="inline-flex items-center text-xs text-gray-600 cursor-pointer">
                                                     <input type="radio" name="facebook_page_id" value="{{ $page->id }}" 
@@ -156,9 +157,10 @@
                                             <label class="block text-sm font-semibold text-gray-700">
                                                 Select Youtube Channel @if($required)<span class="text-rose-500 font-bold">*</span>@endif
                                             </label>
-                                            <button type="button" @click="selectedChannel = ''; $refs.ytChannelRadios.querySelectorAll('input').forEach(i => i.checked = false)" class="text-xs text-indigo-500 hover:text-indigo-700 font-semibold">clear</button>
+                                            <button type="button" @click="selectedChannel = ''; $refs.ytChannelRadios.querySelectorAll('input[type=radio]').forEach(i => i.checked = false)" class="text-xs text-indigo-500 hover:text-indigo-700 font-semibold">clear</button>
                                         </div>
-                                        <div ref="ytChannelRadios" class="flex flex-wrap gap-3 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                        <input type="hidden" name="youtube_channel_id" value="">
+                                        <div x-ref="ytChannelRadios" class="flex flex-wrap gap-3 bg-gray-50 p-3 rounded-lg border border-gray-100">
                                             @foreach($youtubeChannels as $chan)
                                                 <label class="inline-flex items-center text-xs text-gray-600 cursor-pointer">
                                                     <input type="radio" name="youtube_channel_id" value="{{ $chan->id }}" 
@@ -189,7 +191,7 @@
                                         <label for="on_air_date" class="block text-sm font-semibold text-gray-700 mb-2">
                                             On Air Date @if($required)<span class="text-rose-500 font-bold">*</span>@endif
                                         </label>
-                                        <input type="date" name="on_air_date" id="on_air_date" {{ $requiredAttr }} value="{{ old('on_air_date', $task->on_air_date->format('Y-m-d')) }}"
+                                        <input type="date" name="on_air_date" id="on_air_date" {{ $requiredAttr }} value="{{ old('on_air_date', $task->on_air_date?->format('Y-m-d')) }}"
                                             class="w-full border-gray-200 rounded-lg text-sm p-2.5 focus:border-indigo-500 focus:ring focus:ring-indigo-100">
                                         @error('on_air_date')
                                             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -353,7 +355,7 @@
                     </form>
 
                     <!-- Comments & Collaboration Loop -->
-                    <div class="mt-12 border-t border-gray-100 pt-8">
+                    <div id="comments-loop" class="mt-12 border-t border-gray-100 pt-8 scroll-mt-6">
                         <h3 class="font-bold text-gray-800 text-lg mb-6 flex items-center">
                             <svg class="w-5 h-5 text-indigo-500 me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
                             Comments & Feedback Loop
@@ -385,12 +387,15 @@
                                 <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-2">
                                     <div class="flex justify-between items-start">
                                         <div class="flex items-center gap-2">
-                                            <span class="font-bold text-gray-800 text-sm">{{ $comment->user->name }}</span>
-                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $comment->user->role === 'admin' ? 'bg-purple-100 text-purple-800' : ($comment->user->role === 'team_leader' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800') }}">
-                                                {{ ucfirst($comment->user->role) }}
+                                            <span class="font-bold text-gray-800 text-sm">{{ $comment->user?->name ?? 'System' }}</span>
+                                            @php
+                                                $commentRole = $comment->user?->role ?? 'staff';
+                                            @endphp
+                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $commentRole === 'admin' ? 'bg-purple-100 text-purple-800' : ($commentRole === 'team_leader' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800') }}">
+                                                {{ ucfirst($commentRole) }}
                                             </span>
                                         </div>
-                                        <span class="text-xs text-gray-400 font-semibold">{{ $comment->created_at->diffForHumans() }}</span>
+                                        <span class="text-xs text-gray-400 font-semibold">{{ $comment->created_at?->diffForHumans() }}</span>
                                     </div>
                                     <p class="text-sm text-gray-700 whitespace-pre-line">{{ $comment->content }}</p>
                                 </div>

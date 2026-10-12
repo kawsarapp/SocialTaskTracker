@@ -66,9 +66,12 @@ The following tasks are on-air but staff have not yet entered the required Faceb
 
 @forelse($pendingLinks as $task)
 <x-mail::panel>
-🔴 **Task ID: #{{ $task->id }} - {{ $task->title }}**  
-- **On Air Time**: {{ $task->on_air_time }}  
-- **Entry By**: {{ $task->entryUser->name }}  
+🔴 **Task ID: #{{ $task->id }} - {{ $task->title }}** ({{ $task->taskType?->name ?? 'General' }})  
+- **On Air Date & Time**: {{ $task->on_air_date?->format('d M, Y') ?? 'N/A' }} {{ $task->on_air_time ? 'at ' . $task->on_air_time : '' }}  
+- **Entry By**: {{ $task->entryUser?->name ?? 'System' }}  
+@if($task->relationLoaded('assignments') && $task->assignments->isNotEmpty())
+- **Assigned Staff**: {{ $task->assignments->map(fn($a) => ($a->designation?->name ?? 'Role') . ': ' . ($a->user?->name ?? 'Unassigned'))->implode(', ') }}  
+@endif
 - **Missing Links**: 
   @if(!$task->facebook_url && !$task->youtube_url)
     Facebook & YouTube Links

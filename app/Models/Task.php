@@ -149,9 +149,10 @@ class Task extends Model
             'id',
             'id',
             'user_id'
-        )->whereHas('designation', function ($q) {
-            $q->where('name', 'Script Writer');
-        });
+        )->whereIn(
+            'task_assignments.designation_id',
+            Designation::withoutGlobalScopes()->where('name', 'Script Writer')->select('id')
+        );
     }
 
     public function voiceArtist()
@@ -163,9 +164,10 @@ class Task extends Model
             'id',
             'id',
             'user_id'
-        )->whereHas('designation', function ($q) {
-            $q->where('name', 'Voice Artist');
-        });
+        )->whereIn(
+            'task_assignments.designation_id',
+            Designation::withoutGlobalScopes()->where('name', 'Voice Artist')->select('id')
+        );
     }
 
     public function videoEditor()
@@ -177,9 +179,10 @@ class Task extends Model
             'id',
             'id',
             'user_id'
-        )->whereHas('designation', function ($q) {
-            $q->where('name', 'Video Editor');
-        });
+        )->whereIn(
+            'task_assignments.designation_id',
+            Designation::withoutGlobalScopes()->where('name', 'Video Editor')->select('id')
+        );
     }
 
     public function entryUser(): BelongsTo

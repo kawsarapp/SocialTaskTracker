@@ -12,10 +12,11 @@ trait BelongsToTenant
     {
         static::creating(function ($model) {
             if (Auth::check() && !$model->tenant_id) {
-                // Assign tenant_id from logged-in user if not already set
+                // Assign tenant_id from logged-in user (or active tenant for Super Admin) if not already set
                 $user = Auth::user();
-                if ($user->tenant_id) {
-                    $model->tenant_id = $user->tenant_id;
+                $effectiveTenantId = $user->effectiveTenantId();
+                if ($effectiveTenantId) {
+                    $model->tenant_id = $effectiveTenantId;
                 }
             }
         });

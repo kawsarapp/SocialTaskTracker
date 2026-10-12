@@ -9,18 +9,18 @@
         $formConfig = Auth::user()->tenant->task_form_config ?? [];
     @endphp
 
-    <div class="py-8">
-        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl border border-gray-100 flex flex-col md:flex-row">
+    <div class="py-6 sm:py-8">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-100 flex flex-col md:flex-row">
                 
                 <!-- Left Info Panel -->
-                <div class="bg-gray-50 p-6 md:w-1/4 border-b md:border-b-0 md:border-e border-gray-100">
+                <div class="bg-gray-50 p-5 sm:p-6 md:w-1/4 border-b md:border-b-0 md:border-e border-gray-100">
                     <h3 class="font-bold text-gray-800 text-lg mb-2">Create New Task</h3>
                     <p class="text-sm text-gray-500">Always ensure correct fields and links before save.</p>
                 </div>
 
                 <!-- Form Panel -->
-                <div class="p-8 md:w-3/4">
+                <div class="p-5 sm:p-8 md:w-3/4">
                     <form action="{{ route('tasks.store') }}" method="POST" enctype="multipart/form-data">
                         @csrf
 
@@ -117,7 +117,7 @@
                                             </label>
                                             <button type="button" @click="selectedPage = ''; $refs.fbPageRadios.querySelectorAll('input').forEach(i => i.checked = false)" class="text-xs text-indigo-500 hover:text-indigo-700 font-semibold">clear</button>
                                         </div>
-                                        <div ref="fbPageRadios" class="flex flex-wrap gap-3 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                        <div x-ref="fbPageRadios" class="flex flex-wrap gap-3 bg-gray-50 p-3 rounded-lg border border-gray-100">
                                             @forelse($facebookPages as $page)
                                                 <label class="inline-flex items-center text-xs text-gray-600 cursor-pointer">
                                                     <input type="radio" name="facebook_page_id" value="{{ $page->id }}" {{ $requiredAttr }} x-model="selectedPage" class="text-indigo-600 focus:ring-indigo-500">
@@ -156,7 +156,7 @@
                                             </label>
                                             <button type="button" @click="selectedChannel = ''; $refs.ytChannelRadios.querySelectorAll('input').forEach(i => i.checked = false)" class="text-xs text-indigo-500 hover:text-indigo-700 font-semibold">clear</button>
                                         </div>
-                                        <div ref="ytChannelRadios" class="flex flex-wrap gap-3 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                        <div x-ref="ytChannelRadios" class="flex flex-wrap gap-3 bg-gray-50 p-3 rounded-lg border border-gray-100">
                                             @forelse($youtubeChannels as $chan)
                                                 <label class="inline-flex items-center text-xs text-gray-600 cursor-pointer">
                                                     <input type="radio" name="youtube_channel_id" value="{{ $chan->id }}" {{ $requiredAttr }} x-model="selectedChannel" class="text-indigo-600 focus:ring-indigo-500">

@@ -8,30 +8,30 @@
     <!-- Load Chart.js from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <div class="py-8">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8">
+    <div class="py-6 sm:py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
             
             <!-- Summary Metric Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
                 <!-- Total Tasks -->
-                <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-6 text-white shadow-lg border border-indigo-100/10">
-                    <p class="text-xs font-bold uppercase tracking-wider text-indigo-100">Total Tasks Logged</p>
-                    <p class="text-3xl font-extrabold mt-2">{{ number_format($summary['total_tasks']) }}</p>
+                <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-4 sm:p-6 text-white shadow-lg border border-indigo-100/10">
+                    <p class="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-indigo-100">Total Tasks Logged</p>
+                    <p class="text-2xl sm:text-3xl font-extrabold mt-2">{{ number_format($summary['total_tasks']) }}</p>
                 </div>
                 <!-- Active Staff -->
-                <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg border border-purple-100/10">
-                    <p class="text-xs font-bold uppercase tracking-wider text-purple-100">Active Staff Accounts</p>
-                    <p class="text-3xl font-extrabold mt-2">{{ number_format($summary['total_staff']) }}</p>
+                <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-4 sm:p-6 text-white shadow-lg border border-purple-100/10">
+                    <p class="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-purple-100">Active Staff Accounts</p>
+                    <p class="text-2xl sm:text-3xl font-extrabold mt-2">{{ number_format($summary['total_staff']) }}</p>
                 </div>
                 <!-- Custom Shifts -->
-                <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-6 text-white shadow-lg border border-emerald-100/10">
-                    <p class="text-xs font-bold uppercase tracking-wider text-emerald-100">Configured Shifts</p>
-                    <p class="text-3xl font-extrabold mt-2">{{ number_format($summary['total_shifts']) }}</p>
+                <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-4 sm:p-6 text-white shadow-lg border border-emerald-100/10">
+                    <p class="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-emerald-100">Configured Shifts</p>
+                    <p class="text-2xl sm:text-3xl font-extrabold mt-2">{{ number_format($summary['total_shifts']) }}</p>
                 </div>
                 <!-- News Sources / Areas -->
-                <div class="bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl p-6 text-white shadow-lg border border-amber-100/10">
-                    <p class="text-xs font-bold uppercase tracking-wider text-amber-100">Areas / Sources</p>
-                    <p class="text-3xl font-extrabold mt-2">{{ number_format($summary['total_areas']) }}</p>
+                <div class="bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl p-4 sm:p-6 text-white shadow-lg border border-amber-100/10">
+                    <p class="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-amber-100">Areas / Sources</p>
+                    <p class="text-2xl sm:text-3xl font-extrabold mt-2">{{ number_format($summary['total_areas']) }}</p>
                 </div>
             </div>
 

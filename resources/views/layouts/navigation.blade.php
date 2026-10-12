@@ -32,14 +32,14 @@
                                 {{ __('Create Task') }}
                             </x-nav-link>
                         @endif
-                        @if(Auth::user()->hasPermission('view_tasks'))
+                        @if(Auth::user()->hasPermission('view_calendar') || Auth::user()->hasPermission('view_tasks'))
                             <x-nav-link :href="route('tasks.calendar')" :active="request()->routeIs('tasks.calendar')">
                                 {{ __('Calendar View') }}
                             </x-nav-link>
                         @endif
                     @endif
 
-                    @if(Auth::check() && (Auth::user()->isAdmin() || Auth::user()->isSuperAdmin()))
+                    @if(Auth::check() && (Auth::user()->isAdmin() || Auth::user()->isSuperAdmin() || Auth::user()->isTeamLeader() || Auth::user()->hasPermission('manage_settings')))
                         <x-nav-link :href="route('settings.index')" :active="request()->routeIs('settings.index')">
                             {{ __('Manage Fields') }}
                         </x-nav-link>
@@ -162,14 +162,14 @@
                         {{ __('Create Task') }}
                     </x-responsive-nav-link>
                 @endif
-                @if(Auth::user()->hasPermission('view_tasks'))
+                @if(Auth::user()->hasPermission('view_calendar') || Auth::user()->hasPermission('view_tasks'))
                     <x-responsive-nav-link :href="route('tasks.calendar')" :active="request()->routeIs('tasks.calendar')">
                         {{ __('Calendar View') }}
                     </x-responsive-nav-link>
                 @endif
             @endif
 
-            @if(Auth::check() && (Auth::user()->isAdmin() || Auth::user()->isSuperAdmin()))
+            @if(Auth::check() && (Auth::user()->isAdmin() || Auth::user()->isSuperAdmin() || Auth::user()->isTeamLeader() || Auth::user()->hasPermission('manage_settings')))
                 <x-responsive-nav-link :href="route('settings.index')" :active="request()->routeIs('settings.index')">
                     {{ __('Manage Fields') }}
                 </x-responsive-nav-link>
@@ -190,6 +190,38 @@
 
         <!-- Responsive Settings Options -->
         <div class="pt-4 pb-1 border-t border-gray-200">
+            @if(Illuminate\Support\Facades\Auth::check() && !Illuminate\Support\Facades\Auth::user()->isSuperAdmin())
+                <div class="px-4 mb-3">
+                    @if($todayAttendance === null)
+                        <form action="{{ route('attendance.check-in') }}" method="POST">
+                            @csrf
+                            <button type="submit" class="w-full justify-center inline-flex items-center bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow-sm transition duration-150">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-ping me-1.5"></span>
+                                Check In Today
+                            </button>
+                        </form>
+                    @else
+                        <div class="flex items-center justify-between text-xs bg-slate-50 border border-gray-200 px-3 py-2 rounded-lg">
+                            @if($todayAttendance->status === 'leave')
+                                <span class="text-amber-700 font-bold">🌴 On Leave</span>
+                            @else
+                                <span class="text-emerald-700 font-bold">✓ Checked In ({{ $todayAttendance->check_in?->format('h:i A') }})</span>
+                                @if(!$todayAttendance->check_out)
+                                    <form action="{{ route('attendance.check-out') }}" method="POST" class="inline">
+                                        @csrf
+                                        <button type="submit" class="text-rose-600 hover:text-rose-800 font-bold hover:underline focus:outline-none">
+                                            Check Out
+                                        </button>
+                                    </form>
+                                @else
+                                    <span class="text-rose-700 font-bold">Out ({{ $todayAttendance->check_out?->format('h:i A') }})</span>
+                                @endif
+                            @endif
+                        </div>
+                    @endif
+                </div>
+            @endif
+
             <div class="px-4">
                 <div class="font-medium text-base text-gray-800">{{ Auth::user()->name }}</div>
                 <div class="font-medium text-sm text-gray-500">{{ Auth::user()->email }}</div>

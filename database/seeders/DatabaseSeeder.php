@@ -169,7 +169,7 @@ class DatabaseSeeder extends Seeder
 
         // DBC News Tasks
         // Task 1: Complete Links
-        Task::create([
+        $t1 = Task::create([
             'tenant_id' => $dbc->id,
             'title' => 'গ্রেপ্তার হওয়া ১০ সেনা কর্মকর্তার বিরুদ্ধে অভিযোগ গঠনের শুনানি | Bangladesh Army | DBC NEWS',
             'task_type_id' => $typeModels['LIVE']->id,
@@ -181,12 +181,25 @@ class DatabaseSeeder extends Seeder
             'on_air_date' => date('Y-m-d'),
             'area_id' => $areaModels['Mizan - Reporter']->id,
             'team_id' => $socialTeam->id,
-            'script_by' => $riad->id,
-            'voice_by' => $riad->id,
-            'video_edit_by' => $roney->id,
             'tags' => 'Nagad',
             'remarks' => 'Urgent live broadcast completed.',
             'entry_by' => $roney->id,
+        ]);
+
+        \App\Models\TaskAssignment::create([
+            'task_id' => $t1->id,
+            'designation_id' => $dbcDesignations['Script Writer']->id,
+            'user_id' => $riad->id,
+        ]);
+        \App\Models\TaskAssignment::create([
+            'task_id' => $t1->id,
+            'designation_id' => $dbcDesignations['Voice Artist']->id,
+            'user_id' => $riad->id,
+        ]);
+        \App\Models\TaskAssignment::create([
+            'task_id' => $t1->id,
+            'designation_id' => $dbcDesignations['Video Editor']->id,
+            'user_id' => $roney->id,
         ]);
 
         // Task 2: Multi types, complete links
@@ -202,9 +215,6 @@ class DatabaseSeeder extends Seeder
             'on_air_date' => date('Y-m-d'),
             'area_id' => $areaModels['Dhaka Office']->id,
             'team_id' => $socialTeam->id,
-            'script_by' => null,
-            'voice_by' => null,
-            'video_edit_by' => null,
             'tags' => 'Nagad',
             'remarks' => 'On air statement.',
             'entry_by' => $mHussain->id,
@@ -223,9 +233,6 @@ class DatabaseSeeder extends Seeder
             'on_air_date' => date('Y-m-d'),
             'area_id' => $areaModels['Dhaka Office']->id,
             'team_id' => $socialTeam->id,
-            'script_by' => null,
-            'voice_by' => null,
-            'video_edit_by' => null,
             'tags' => 'Nagad',
             'remarks' => 'Facebook video pending edit.',
             'entry_by' => $mMehadi->id,

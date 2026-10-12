@@ -28,9 +28,9 @@ class TaskPolicy
         // Otherwise, they can edit if they have view_tasks and are assigned or entered it
         if ($user->hasPermission('view_tasks')) {
             return $user->id === (int) $task->entry_by
-                || $user->id === (int) $task->script_by
-                || $user->id === (int) $task->voice_by
-                || $user->id === (int) $task->video_edit_by;
+                || ($task->relationLoaded('assignments')
+                    ? $task->assignments->contains('user_id', $user->id)
+                    : $task->assignments()->where('user_id', $user->id)->exists());
         }
 
         return false;

@@ -30,7 +30,7 @@ class NotificationService
             }
 
             // Load relations if not loaded
-            $task->load(['taskType', 'shift', 'scriptWriter', 'voiceArtist', 'videoEditor', 'entryUser']);
+            $task->load(['taskType', 'shift', 'scriptWriter', 'voiceArtist', 'videoEditor', 'entryUser', 'assignments.designation', 'assignments.user']);
 
             $emoji = $action === 'created' ? '🆕' : '🚀';
             $titleAction = $action === 'created' ? 'New Content Logged' : 'Task Published Live';
@@ -42,13 +42,22 @@ class NotificationService
             $msg .= "*Title:* {$task->title}\n";
             $msg .= "*Type:* " . ($task->taskType->name ?? 'Unknown') . "\n";
             $msg .= "*Shift:* " . ($task->shift->name ?? 'General') . "\n";
-            $msg .= "*On Air:* {$task->on_air_date->format('d/m/Y')} at {$task->on_air_time}\n";
+            $msg .= "*On Air:* " . ($task->on_air_date?->format('d/m/Y') ?? 'N/A') . " at " . ($task->on_air_time ?? 'N/A') . "\n";
             $msg .= "*Logged By:* " . ($task->entryUser->name ?? 'System') . "\n\n";
 
             $msg .= "*Staff Assignments:*\n";
-            $msg .= "  - Script: " . ($task->scriptWriter->name ?? 'Not Assigned') . "\n";
-            $msg .= "  - Voice: " . ($task->voiceArtist->name ?? 'Not Assigned') . "\n";
-            $msg .= "  - Video Edit: " . ($task->videoEditor->name ?? 'Not Assigned') . "\n\n";
+            if ($task->assignments->isNotEmpty()) {
+                foreach ($task->assignments as $assignment) {
+                    $roleName = $assignment->designation->name ?? 'Staff';
+                    $userName = $assignment->user->name ?? 'Not Assigned';
+                    $msg .= "  - {$roleName}: {$userName}\n";
+                }
+                $msg .= "\n";
+            } else {
+                $msg .= "  - Script: " . ($task->scriptWriter->name ?? 'Not Assigned') . "\n";
+                $msg .= "  - Voice: " . ($task->voiceArtist->name ?? 'Not Assigned') . "\n";
+                $msg .= "  - Video Edit: " . ($task->videoEditor->name ?? 'Not Assigned') . "\n\n";
+            }
 
             $msg .= "*Social Publishing Links:*\n";
             $msg .= "  - Facebook: " . ($task->facebook_url ?: 'Pending ✖') . "\n";

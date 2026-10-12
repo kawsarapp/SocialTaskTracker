@@ -36,7 +36,7 @@
         <!-- Real-Time Toaster Notifications (Alpine.js) -->
         <div x-data="notificationEngine()" 
              x-init="initEngine()"
-             class="fixed bottom-5 right-5 z-[9999] flex flex-col gap-3 max-w-sm w-full pointer-events-none">
+             class="fixed bottom-4 right-4 left-4 sm:left-auto sm:bottom-5 sm:right-5 z-[9999] flex flex-col gap-3 sm:max-w-sm sm:w-full pointer-events-none">
             
             <template x-for="toast in toasts" :key="toast.id">
                 <div x-show="toast.visible"
@@ -144,15 +144,19 @@
                                 setTimeout(() => parentBadge.classList.remove('scale-110', 'bg-indigo-100'), 1500);
                             }
                         } else {
-                            // Badge doesn't exist, create it inside the container
+                            // Badge doesn't exist, create it safely inside the container
                             const badgeContainer = document.getElementById('comment-badge-container-' + comment.task_id);
                             if (badgeContainer) {
-                                badgeContainer.innerHTML = `
-                                    <a href="${comment.edit_url}#comments-loop" class="inline-flex items-center gap-0.5 bg-indigo-50 border border-indigo-200 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-indigo-100 transition shadow-sm animate-bounce" title="View feedback and comments">
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
-                                        <span id="comment-badge-count-${comment.task_id}">1</span>
-                                    </a>
-                                `;
+                                const link = document.createElement('a');
+                                link.href = (comment.edit_url || '') + '#comments-loop';
+                                link.className = 'inline-flex items-center gap-0.5 bg-indigo-50 border border-indigo-200 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-indigo-100 transition shadow-sm animate-bounce';
+                                link.title = 'View feedback and comments';
+                                link.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>';
+                                const span = document.createElement('span');
+                                span.id = 'comment-badge-count-' + comment.task_id;
+                                span.textContent = '1';
+                                link.appendChild(span);
+                                badgeContainer.replaceChildren(link);
                             }
                         }
 
@@ -166,25 +170,44 @@
                                     placeholder.style.display = 'none';
                                 }
 
-                                // Build comment element
+                                // Build comment element safely using textContent to prevent DOM XSS
                                 const commentDiv = document.createElement('div');
                                 commentDiv.className = "bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-2 animate-fade-in";
                                 
-                                const roleColor = comment.user_role === 'admin' ? 'bg-purple-100 text-purple-800' : (comment.user_role === 'team_leader' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800');
-                                const capitalizedRole = comment.user_role.charAt(0).toUpperCase() + comment.user_role.slice(1);
+                                const roleStr = String(comment.user_role || 'staff');
+                                const roleColor = roleStr === 'admin' ? 'bg-purple-100 text-purple-800' : (roleStr === 'team_leader' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800');
+                                const capitalizedRole = roleStr.charAt(0).toUpperCase() + roleStr.slice(1);
 
-                                commentDiv.innerHTML = `
-                                    <div class="flex justify-between items-start">
-                                        <div class="flex items-center gap-2">
-                                            <span class="font-bold text-gray-800 text-sm">${comment.user_name}</span>
-                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${roleColor}">
-                                                ${capitalizedRole}
-                                            </span>
-                                        </div>
-                                        <span class="text-xs text-gray-400 font-semibold">${comment.created_at_human}</span>
-                                    </div>
-                                    <p class="text-sm text-gray-700 whitespace-pre-line">${comment.content}</p>
-                                `;
+                                const headerRow = document.createElement('div');
+                                headerRow.className = 'flex justify-between items-start';
+
+                                const userGroup = document.createElement('div');
+                                userGroup.className = 'flex items-center gap-2';
+
+                                const nameSpan = document.createElement('span');
+                                nameSpan.className = 'font-bold text-gray-800 text-sm';
+                                nameSpan.textContent = comment.user_name || 'System';
+
+                                const roleSpan = document.createElement('span');
+                                roleSpan.className = `px-2 py-0.5 rounded-full text-[10px] font-semibold ${roleColor}`;
+                                roleSpan.textContent = capitalizedRole;
+
+                                userGroup.appendChild(nameSpan);
+                                userGroup.appendChild(roleSpan);
+
+                                const timeSpan = document.createElement('span');
+                                timeSpan.className = 'text-xs text-gray-400 font-semibold';
+                                timeSpan.textContent = comment.created_at_human || comment.created_at || '';
+
+                                headerRow.appendChild(userGroup);
+                                headerRow.appendChild(timeSpan);
+
+                                const contentP = document.createElement('p');
+                                contentP.className = 'text-sm text-gray-700 whitespace-pre-line';
+                                contentP.textContent = comment.content || '';
+
+                                commentDiv.appendChild(headerRow);
+                                commentDiv.appendChild(contentP);
 
                                 // Append to top of the list (since we sort descending)
                                 listContainer.insertBefore(commentDiv, listContainer.firstChild);

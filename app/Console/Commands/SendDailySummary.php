@@ -42,7 +42,7 @@ class SendDailySummary extends Command
             $tasks = Task::withoutGlobalScopes()
                 ->where('tenant_id', $tenant->id)
                 ->whereDate('on_air_date', $todayStr)
-                ->with(['taskType', 'entryUser', 'scriptWriter', 'voiceArtist', 'videoEditor', 'shift'])
+                ->with(['taskType', 'entryUser', 'scriptWriter', 'voiceArtist', 'videoEditor', 'shift', 'assignments.designation', 'assignments.user'])
                 ->get();
                 
             $this->info("Found " . $tasks->count() . " tasks for today.");
@@ -65,22 +65,44 @@ class SendDailySummary extends Command
             $staffStats = [];
             $users = User::withoutGlobalScopes()->where('tenant_id', $tenant->id)->get();
             foreach ($users as $user) {
-                $staffStats[$user->name] = ['scripts' => 0, 'voices' => 0, 'edits' => 0];
+                $staffStats[$user->name] = ['scripts' => 0, 'voices' => 0, 'edits' => 0, 'other' => 0];
             }
             foreach ($tasks as $task) {
-                if ($task->scriptWriter) {
-                    $staffStats[$task->scriptWriter->name]['scripts']++;
-                }
-                if ($task->voiceArtist) {
-                    $staffStats[$task->voiceArtist->name]['voices']++;
-                }
-                if ($task->videoEditor) {
-                    $staffStats[$task->videoEditor->name]['edits']++;
+                if ($task->assignments->isNotEmpty()) {
+                    foreach ($task->assignments as $assignment) {
+                        $userName = $assignment->user->name ?? null;
+                        $roleName = $assignment->designation->name ?? '';
+                        if (!$userName) {
+                            continue;
+                        }
+                        if (!isset($staffStats[$userName])) {
+                            $staffStats[$userName] = ['scripts' => 0, 'voices' => 0, 'edits' => 0, 'other' => 0];
+                        }
+                        if ($roleName === 'Script Writer') {
+                            $staffStats[$userName]['scripts']++;
+                        } elseif ($roleName === 'Voice Artist') {
+                            $staffStats[$userName]['voices']++;
+                        } elseif ($roleName === 'Video Editor') {
+                            $staffStats[$userName]['edits']++;
+                        } else {
+                            $staffStats[$userName]['other']++;
+                        }
+                    }
+                } else {
+                    if ($task->scriptWriter && isset($staffStats[$task->scriptWriter->name])) {
+                        $staffStats[$task->scriptWriter->name]['scripts']++;
+                    }
+                    if ($task->voiceArtist && isset($staffStats[$task->voiceArtist->name])) {
+                        $staffStats[$task->voiceArtist->name]['voices']++;
+                    }
+                    if ($task->videoEditor && isset($staffStats[$task->videoEditor->name])) {
+                        $staffStats[$task->videoEditor->name]['edits']++;
+                    }
                 }
             }
             // Remove staff with zero logged work to keep reports concise
             $staffStats = array_filter($staffStats, function($item) {
-                return $item['scripts'] > 0 || $item['voices'] > 0 || $item['edits'] > 0;
+                return $item['scripts'] > 0 || $item['voices'] > 0 || $item['edits'] > 0 || ($item['other'] ?? 0) > 0;
             });
 
             // 4. Find tasks with missing URLs
