@@ -6,9 +6,15 @@
             </h2>
             <div class="flex items-center gap-2.5">
                 @if(Auth::user()->hasPermission('view_activity_logs'))
-                    <button type="button" @click="$dispatch('open-activity-drawer')" class="inline-flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-gray-200 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold shadow-sm transition duration-150">
+                    <button type="button" @click="window.dispatchEvent(new CustomEvent('open-activity-drawer'))" class="inline-flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-gray-200 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold shadow-sm transition duration-150">
                         <span>🕒</span>
                         <span>Activity Logs</span>
+                    </button>
+                @endif
+                @if(Auth::user()->hasPermission('publish_social_posts'))
+                    <button type="button" @click="window.dispatchEvent(new CustomEvent('open-publish-modal'))" class="inline-flex items-center gap-1.5 bg-gradient-to-r from-pink-500 via-rose-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold shadow transition duration-150 cursor-pointer">
+                        <span>🎬</span>
+                        <span>Publish Video / Reel</span>
                     </button>
                 @endif
                 @if(Auth::user()->hasPermission('create_tasks'))
@@ -79,6 +85,11 @@
             showQuickLinkModal: false,
             quickLinkTask: null,
             showActivityDrawer: false,
+            showPublishModal: false,
+            publishPostType: 'reel',
+            targetFb: false,
+            targetYt: false,
+            isPublishing: false,
             selectedTaskIds: [],
             allPageTaskIds: {{ json_encode($pageTaskIds) }},
             bulkType: 'assign_team',
@@ -103,7 +114,8 @@
                 }
             }
          }"
-         @open-activity-drawer.window="showActivityDrawer = true">
+         @open-activity-drawer.window="showActivityDrawer = true"
+         @open-publish-modal.window="showPublishModal = true">
         <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
             
             <!-- Success Toast -->
@@ -247,6 +259,13 @@
                 </div>
 
                 <div class="flex items-center gap-2 sm:me-2">
+                    @if(Auth::user()->hasPermission('publish_social_posts'))
+                        <button type="button" @click="window.dispatchEvent(new CustomEvent('open-publish-modal'))" 
+                                class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-pink-500 via-rose-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm transition duration-150 cursor-pointer">
+                            <span>🎬</span>
+                            <span>Publish Video / Reel</span>
+                        </button>
+                    @endif
                     @if(Auth::user()->hasPermission('export_tasks'))
                         <a href="{{ route('tasks.export', request()->all()) }}" 
                            class="inline-flex items-center px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition duration-150"
@@ -801,6 +820,215 @@
                 </div>
             </div>
 
+            <!-- Multi-Channel Post & Reel Publisher Modal -->
+            @if(Auth::user()->hasPermission('publish_social_posts'))
+                <div x-show="showPublishModal" 
+                     class="fixed inset-0 z-[9999] overflow-y-auto flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+                     x-transition:enter="transition ease-out duration-200"
+                     x-transition:enter-start="opacity-0"
+                     x-transition:enter-end="opacity-100"
+                     x-transition:leave="transition ease-in duration-150"
+                     x-transition:leave-start="opacity-100"
+                     x-transition:leave-end="opacity-0"
+                     style="display: none;"
+                     x-cloak
+                     @keydown.escape.window="showPublishModal = false">
+                    
+                    <div class="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-2xl w-full max-h-[92vh] overflow-y-auto transform transition-all flex flex-col"
+                         @click.away="showPublishModal = false">
+                        
+                        <!-- Modal Header -->
+                        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white rounded-t-2xl">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-pink-500/20 border border-pink-500/30 flex items-center justify-center text-xl shrink-0">
+                                    🎬
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-base sm:text-lg text-white">🎬 Multi-Channel Video, Reel &amp; Post Publisher</h3>
+                                    <p class="text-xs text-slate-300">Directly publish videos, reels, and updates to Facebook Pages and YouTube Channels.</p>
+                                </div>
+                            </div>
+                            <button type="button" @click="showPublishModal = false" class="text-slate-400 hover:text-white font-bold text-2xl leading-none cursor-pointer">&times;</button>
+                        </div>
+
+                        <!-- Modal Form -->
+                        <form action="{{ route('social-publish.store') }}" method="POST" enctype="multipart/form-data" class="p-6 space-y-4" @submit="isPublishing = true">
+                            @csrf
+
+                            @if($facebookPages->isEmpty() && $youtubeChannels->isEmpty())
+                                <div class="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3 text-amber-900 text-xs">
+                                    <span class="text-xl shrink-0">💡</span>
+                                    <div>
+                                        <p class="font-bold mb-1">You haven't added any Facebook Pages or YouTube Channels yet.</p>
+                                        <p class="text-amber-700 mb-2">Connect your social media channels to publish videos, reels, and updates directly from the dashboard.</p>
+                                        <a href="{{ route('settings.index') }}#taxonomy" class="inline-flex items-center gap-1 font-bold text-indigo-700 hover:text-indigo-900 underline">
+                                            Go to Settings ➔ Channels to connect your social media &rarr;
+                                        </a>
+                                    </div>
+                                </div>
+                            @endif
+
+                            <!-- Content Type Selector -->
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                                    Content Type <span class="text-rose-500">*</span>
+                                </label>
+                                <input type="hidden" name="post_type" :value="publishPostType">
+                                <div class="grid grid-cols-3 gap-2">
+                                    <button type="button" 
+                                            @click="publishPostType = 'reel'" 
+                                            :class="publishPostType === 'reel' ? 'bg-indigo-600 text-white shadow ring-2 ring-indigo-500 ring-offset-1 font-bold' : 'bg-slate-100 hover:bg-slate-200 text-gray-700 font-medium'"
+                                            class="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs transition cursor-pointer">
+                                        <span>⚡</span>
+                                        <span class="truncate">Reel / Short</span>
+                                    </button>
+                                    <button type="button" 
+                                            @click="publishPostType = 'video'" 
+                                            :class="publishPostType === 'video' ? 'bg-indigo-600 text-white shadow ring-2 ring-indigo-500 ring-offset-1 font-bold' : 'bg-slate-100 hover:bg-slate-200 text-gray-700 font-medium'"
+                                            class="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs transition cursor-pointer">
+                                        <span>🎬</span>
+                                        <span class="truncate">Standard Video</span>
+                                    </button>
+                                    <button type="button" 
+                                            @click="publishPostType = 'post'" 
+                                            :class="publishPostType === 'post' ? 'bg-indigo-600 text-white shadow ring-2 ring-indigo-500 ring-offset-1 font-bold' : 'bg-slate-100 hover:bg-slate-200 text-gray-700 font-medium'"
+                                            class="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs transition cursor-pointer">
+                                        <span>📝</span>
+                                        <span class="truncate">Social Post</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Post Title / Headline -->
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                                    Post Title / Headline <span class="text-rose-500">*</span>
+                                </label>
+                                <input type="text" name="title" required placeholder="e.g. Breaking: Major Tech Milestone Announced Today" 
+                                       class="w-full border-gray-200 rounded-xl text-xs sm:text-sm focus:border-indigo-500 focus:ring-indigo-500 placeholder-gray-400 py-2.5">
+                            </div>
+
+                            <!-- Caption / Description -->
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                                    Caption / Description &amp; Hashtags
+                                </label>
+                                <textarea name="content" rows="3" placeholder="Write engaging caption, key points, and #hashtags for social channels..." 
+                                          class="w-full border-gray-200 rounded-xl text-xs sm:text-sm focus:border-indigo-500 focus:ring-indigo-500 placeholder-gray-400 py-2.5 resize-y"></textarea>
+                            </div>
+
+                            <!-- Target Channels -->
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                                    Target Publishing Channels <span class="text-rose-500">*</span>
+                                </label>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <!-- Facebook Page -->
+                                    <div class="p-3.5 rounded-xl border transition" :class="targetFb ? 'bg-blue-50/70 border-blue-200 ring-1 ring-blue-300' : 'bg-slate-50 border-gray-200'">
+                                        <label class="flex items-center gap-2.5 cursor-pointer select-none">
+                                            <input type="checkbox" name="platforms[]" value="facebook" x-model="targetFb" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                            <div class="flex items-center gap-1.5 text-xs font-bold text-blue-900">
+                                                <svg class="w-4 h-4 fill-current text-blue-600" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                                                <span>Facebook Page</span>
+                                            </div>
+                                        </label>
+                                        <div x-show="targetFb" x-transition class="mt-2.5 pt-2 border-t border-blue-100" style="display: none;">
+                                            <label class="block text-[11px] font-semibold text-blue-800 mb-1">Select Facebook Page</label>
+                                            <select name="facebook_page_id" class="w-full border-gray-200 rounded-lg text-xs bg-white focus:border-blue-500 focus:ring-blue-500 py-1.5">
+                                                <option value="">Default / Auto Page</option>
+                                                @foreach($facebookPages as $page)
+                                                    <option value="{{ $page->id }}">{{ $page->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- YouTube Channel -->
+                                    <div class="p-3.5 rounded-xl border transition" :class="targetYt ? 'bg-rose-50/70 border-rose-200 ring-1 ring-rose-300' : 'bg-slate-50 border-gray-200'">
+                                        <label class="flex items-center gap-2.5 cursor-pointer select-none">
+                                            <input type="checkbox" name="platforms[]" value="youtube" x-model="targetYt" class="rounded border-gray-300 text-rose-600 focus:ring-rose-500">
+                                            <div class="flex items-center gap-1.5 text-xs font-bold text-rose-900">
+                                                <svg class="w-4 h-4 fill-current text-rose-600" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                                                <span>YouTube Channel</span>
+                                            </div>
+                                        </label>
+                                        <div x-show="targetYt" x-transition class="mt-2.5 pt-2 border-t border-rose-100" style="display: none;">
+                                            <label class="block text-[11px] font-semibold text-rose-800 mb-1">Select YouTube Channel</label>
+                                            <select name="youtube_channel_id" class="w-full border-gray-200 rounded-lg text-xs bg-white focus:border-rose-500 focus:ring-rose-500 py-1.5">
+                                                <option value="">Default / Auto Channel</option>
+                                                @foreach($youtubeChannels as $chan)
+                                                    <option value="{{ $chan->id }}">{{ $chan->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div x-show="!targetFb && !targetYt" class="mt-1.5 text-[11px] text-amber-600 font-semibold flex items-center gap-1">
+                                    <span>⚠️ Please select at least one publishing channel (Facebook or YouTube).</span>
+                                </div>
+                            </div>
+
+                            <!-- Media Uploads: Video & Thumbnail -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                        Video / Media File
+                                    </label>
+                                    <input type="file" name="media" accept="video/*,image/*" 
+                                           class="w-full border border-gray-200 rounded-lg text-xs text-gray-600 file:mr-2 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer">
+                                    <span class="block text-[10px] text-gray-400 mt-1">MP4, MOV, WebM or Image (Max 100MB)</span>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                        Custom Thumbnail
+                                    </label>
+                                    <input type="file" name="thumbnail" accept="image/*" 
+                                           class="w-full border border-gray-200 rounded-lg text-xs text-gray-600 file:mr-2 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer">
+                                    <span class="block text-[10px] text-gray-400 mt-1">JPG, PNG, WebP cover (Optional, Max 10MB)</span>
+                                </div>
+                            </div>
+
+                            <!-- Link to Task (Optional) -->
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                                    Link to Workspace Task (Optional)
+                                </label>
+                                <select name="task_id" class="w-full border-gray-200 rounded-xl text-xs bg-white focus:border-indigo-500 focus:ring-indigo-500 py-2.5">
+                                    <option value="">-- No Linked Task (Stand-alone Publish) --</option>
+                                    @foreach($tasks as $t)
+                                        <option value="{{ $t->id }}">#{{ $t->id }} — {{ Str::limit($t->title, 50) }} ({{ $t->on_air_date?->format('d M') ?? 'N/A' }})</option>
+                                    @endforeach
+                                </select>
+                                <span class="block text-[11px] text-gray-400 mt-1">If linked, live published Facebook &amp; YouTube URLs will automatically be attached to this task.</span>
+                            </div>
+
+                            <!-- Footer Actions -->
+                            <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-gray-100">
+                                <button type="button" @click="showPublishModal = false" class="w-full sm:w-auto bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-2.5 px-4 rounded-xl transition cursor-pointer">
+                                    Cancel
+                                </button>
+                                <button type="submit" 
+                                        :disabled="isPublishing || (!targetFb && !targetYt)" 
+                                        class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-pink-600 via-rose-600 to-indigo-600 hover:from-pink-700 hover:to-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm cursor-pointer">
+                                    <template x-if="!isPublishing">
+                                        <span>🚀 Publish to Selected Channels Now</span>
+                                    </template>
+                                    <template x-if="isPublishing">
+                                        <span class="flex items-center gap-2">
+                                            <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                                            </svg>
+                                            Publishing to Channels...
+                                        </span>
+                                    </template>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            @endif
+
             <!-- 2. Live Activity Log Slide-Over Drawer -->
             @if(Auth::user()->hasPermission('view_activity_logs'))
                 <div x-show="showActivityDrawer" 
@@ -842,6 +1070,7 @@
                                             'updated', 'link_updated', 'bulk_updated', 'permissions_updated', 'column_toggled', 'settings_updated', 'form_config_updated', 'webhooks_updated', 'api_keys_updated' => 'bg-amber-100 text-amber-800',
                                             'deleted', 'bulk_deleted', 'designation_deleted' => 'bg-rose-100 text-rose-800',
                                             'exported_csv' => 'bg-indigo-100 text-indigo-800',
+                                            'social_published' => 'bg-fuchsia-100 text-fuchsia-800 border border-fuchsia-200',
                                             'attendance_checkin', 'attendance_checkout', 'leave_requested' => 'bg-purple-100 text-purple-800',
                                             default => 'bg-slate-200 text-slate-800',
                                         };

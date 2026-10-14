@@ -7,6 +7,7 @@ use App\Http\Controllers\TaskController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\SocialPublishController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -40,6 +41,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/tasks/{task}/sync-stats', [TaskController::class, 'syncSingleTask'])->name('tasks.sync-stats');
     Route::post('/tasks/{task}/comments', [CommentController::class, 'store'])->name('tasks.comments.store');
     Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
+    Route::post('/social-publish', [SocialPublishController::class, 'store'])->name('social-publish.store');
+    Route::get('/social-publish/history', [SocialPublishController::class, 'history'])->name('social-publish.history');
 
     // Tenant Configuration Panel (Admins and Super Admins)
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');

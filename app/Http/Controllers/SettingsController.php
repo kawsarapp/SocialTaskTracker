@@ -27,6 +27,7 @@ class SettingsController extends Controller
         'view_calendar' => 'View Content Calendar',
         'view_analytics' => 'View Analytics & Charts',
         'sync_social_metrics' => 'Sync Social API Metrics',
+        'publish_social_posts' => 'Direct Social Media Publishing (Facebook & YouTube)',
         'manage_settings' => 'Manage Dynamic Settings & Fields',
         'view_activity_logs' => 'View Activity Audit Logs',
     ];

@@ -128,6 +128,7 @@ class User extends Authenticatable
                 'view_analytics',
                 'manage_settings',
                 'view_activity_logs',
+                'publish_social_posts',
             ]);
         }
 

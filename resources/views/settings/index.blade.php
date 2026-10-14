@@ -43,11 +43,12 @@
 
     <div class="py-6 sm:py-8"
          x-data="{
-            activeTab: localStorage.getItem('stt_settings_tab') || 'roles',
+            activeTab: window.location.hash ? window.location.hash.replace('#', '') : (localStorage.getItem('stt_settings_tab') || 'roles'),
             staffSearch: '',
             setTab(tab) {
                 this.activeTab = tab;
                 localStorage.setItem('stt_settings_tab', tab);
+                window.location.hash = tab;
             }
          }">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
@@ -468,6 +469,15 @@
                                             <span class="block text-[11px] text-gray-400 leading-tight mt-0.5">View full workspace revision history and live activity feed.</span>
                                         </div>
                                     </label>
+
+                                    <!-- 13. Direct Social Media Publishing -->
+                                    <label class="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:bg-slate-50 cursor-pointer transition">
+                                        <input type="checkbox" name="permissions[]" value="publish_social_posts" :checked="hasPerm('publish_social_posts')" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mt-1">
+                                        <div>
+                                            <span class="block text-xs font-bold text-gray-800">Direct Social Media Publishing</span>
+                                            <span class="block text-[11px] text-gray-400 leading-tight mt-0.5">Publish videos, reels, and posts to Facebook &amp; YouTube from dashboard.</span>
+                                        </div>
+                                    </label>
                                 </div>
                                 
                                 <div x-show="saveError" class="text-xs text-red-600 font-semibold" x-text="saveError"></div>
@@ -587,7 +597,7 @@
             <!-- ========================================================================= -->
             <!-- TAB 2: CHANNELS & TAXONOMY (6 Quick-Config Cards in 3-Col Grid)           -->
             <!-- ========================================================================= -->
-            <div x-show="activeTab === 'taxonomy' || activeTab === 'all'" class="space-y-6">
+            <div id="taxonomy" x-show="activeTab === 'taxonomy' || activeTab === 'all'" class="space-y-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     
                     <!-- 1. Task Types -->
@@ -685,18 +695,37 @@
                     </div>
 
                     <!-- 4. Facebook Pages -->
-                    <div class="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-100 p-5 flex flex-col justify-between">
+                    <div class="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-100 p-5 flex flex-col justify-between" x-data="{ showFbGuide: false }">
                         <div>
-                            <div class="flex justify-between items-center mb-4">
+                            <div class="flex justify-between items-center mb-3">
                                 <div>
-                                    <h3 class="font-bold text-gray-800 text-sm">Facebook Pages</h3>
+                                    <h3 class="font-bold text-gray-800 text-sm flex items-center gap-1.5">
+                                        <span>📘 Facebook Pages</span>
+                                    </h3>
                                     <p class="text-[11px] text-gray-400">Target pages for social publishing</p>
                                 </div>
                                 <span class="px-2 py-0.5 text-xs font-extrabold rounded-full bg-blue-50 text-blue-600">{{ $facebookPages->count() }}</span>
                             </div>
+
+                            <!-- Helpful Expandable Guide -->
+                            <div class="mb-3.5 p-2.5 bg-blue-50/70 border border-blue-100 rounded-xl text-[11px] text-blue-900 leading-relaxed">
+                                <button type="button" @click="showFbGuide = !showFbGuide" class="w-full flex items-center justify-between font-bold text-blue-800 cursor-pointer">
+                                    <span class="flex items-center gap-1">
+                                        <span>💡</span>
+                                        <span>How to add your Facebook Page</span>
+                                    </span>
+                                    <span class="text-blue-600 font-semibold text-[10px]" x-text="showFbGuide ? '▲ Hide' : '▼ View guide'"></span>
+                                </button>
+                                <div x-show="showFbGuide" x-cloak class="mt-2 pt-2 border-t border-blue-200/60 space-y-1.5 text-blue-800">
+                                    <p><strong>1. Enter Page Name:</strong> Enter your Facebook Page Name or Page ID (found in your Page's <em>About ➔ Page Transparency</em> section).</p>
+                                    <p><strong>2. Direct Publishing:</strong> Once added, you can publish Reels and videos directly to this page from the <em>🎬 Publish Video / Reel</em> modal on your dashboard.</p>
+                                    <p><strong>3. API Automation:</strong> Enter your Page Access Token in <a href="javascript:void(0)" @click="setTab('integrations')" class="underline font-bold text-indigo-700">API &amp; Webhooks</a> to auto-sync video metrics.</p>
+                                </div>
+                            </div>
+
                             <form action="{{ route('settings.fb-pages.store') }}" method="POST" class="flex gap-2 mb-4">
                                 @csrf
-                                <input type="text" name="name" required placeholder="Page URL or Name" class="flex-1 border-gray-200 rounded-lg text-xs focus:ring focus:ring-indigo-100">
+                                <input type="text" name="name" required placeholder="Page Name or URL (e.g. BBC Bangla Video)" class="flex-1 border-gray-200 rounded-lg text-xs focus:ring focus:ring-indigo-100">
                                 <button type="submit" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition cursor-pointer">Add</button>
                             </form>
                             <div class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
@@ -716,18 +745,37 @@
                     </div>
 
                     <!-- 5. YouTube Channels -->
-                    <div class="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-100 p-5 flex flex-col justify-between">
+                    <div class="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-100 p-5 flex flex-col justify-between" x-data="{ showYtGuide: false }">
                         <div>
-                            <div class="flex justify-between items-center mb-4">
+                            <div class="flex justify-between items-center mb-3">
                                 <div>
-                                    <h3 class="font-bold text-gray-800 text-sm">YouTube Channels</h3>
+                                    <h3 class="font-bold text-gray-800 text-sm flex items-center gap-1.5">
+                                        <span>▶️ YouTube Channels</span>
+                                    </h3>
                                     <p class="text-[11px] text-gray-400">Target channels for video uploads</p>
                                 </div>
                                 <span class="px-2 py-0.5 text-xs font-extrabold rounded-full bg-rose-50 text-rose-600">{{ $youtubeChannels->count() }}</span>
                             </div>
+
+                            <!-- Helpful Expandable Guide -->
+                            <div class="mb-3.5 p-2.5 bg-rose-50/70 border border-rose-100 rounded-xl text-[11px] text-rose-900 leading-relaxed">
+                                <button type="button" @click="showYtGuide = !showYtGuide" class="w-full flex items-center justify-between font-bold text-rose-800 cursor-pointer">
+                                    <span class="flex items-center gap-1">
+                                        <span>💡</span>
+                                        <span>How to add your YouTube Channel</span>
+                                    </span>
+                                    <span class="text-rose-600 font-semibold text-[10px]" x-text="showYtGuide ? '▲ Hide' : '▼ View guide'"></span>
+                                </button>
+                                <div x-show="showYtGuide" x-cloak class="mt-2 pt-2 border-t border-rose-200/60 space-y-1.5 text-rose-800">
+                                    <p><strong>1. Enter Channel Title:</strong> Enter your Channel Title or Channel ID (e.g. <code>UCxxxxxxxx</code> from <em>YouTube Studio ➔ Settings ➔ Advanced channel settings</em>).</p>
+                                    <p><strong>2. Direct Publishing:</strong> Once added, you can publish videos and shorts directly from the dashboard publisher modal.</p>
+                                    <p><strong>3. Analytics Sync:</strong> Enter your YouTube Data API v3 key in <a href="javascript:void(0)" @click="setTab('integrations')" class="underline font-bold text-rose-700">API &amp; Webhooks</a> to auto-sync views and likes.</p>
+                                </div>
+                            </div>
+
                             <form action="{{ route('settings.yt-channels.store') }}" method="POST" class="flex gap-2 mb-4">
                                 @csrf
-                                <input type="text" name="name" required placeholder="Channel Name" class="flex-1 border-gray-200 rounded-lg text-xs focus:ring focus:ring-indigo-100">
+                                <input type="text" name="name" required placeholder="Channel Name or ID (e.g. News 24 Special)" class="flex-1 border-gray-200 rounded-lg text-xs focus:ring focus:ring-indigo-100">
                                 <button type="submit" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition cursor-pointer">Add</button>
                             </form>
                             <div class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
@@ -1151,7 +1199,44 @@
                             <svg class="w-5 h-5 text-indigo-500 me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
                             Social API Integration
                         </h3>
-                        <p class="text-xs text-gray-400 mb-6">Auto-sync video views, likes, and reach on YouTube and Facebook page clips.</p>
+                        <p class="text-xs text-gray-400 mb-4">Auto-sync video views, likes, and reach on YouTube and Facebook page clips.</p>
+
+                        <!-- Clear 3-Step Setup Guide -->
+                        <div x-data="{ showSocialGuide: false }" class="mb-5 bg-gradient-to-r from-indigo-50/70 to-slate-50 border border-indigo-100 rounded-xl p-3.5 text-xs text-indigo-950">
+                            <button type="button" @click="showSocialGuide = !showSocialGuide" class="w-full flex items-center justify-between font-bold cursor-pointer">
+                                <span class="flex items-center gap-1.5">
+                                    <span>💡</span>
+                                    <span>3-Step Setup Guide: Meta Graph API &amp; YouTube Data API v3</span>
+                                </span>
+                                <span class="text-indigo-600 text-[11px] font-semibold" x-text="showSocialGuide ? '▲ Hide Guide' : '▼ View Setup Steps'"></span>
+                            </button>
+                            <div x-show="showSocialGuide" x-cloak class="mt-3 pt-3 border-t border-indigo-100/80 space-y-3 text-[11px] leading-relaxed text-slate-700">
+                                <div class="flex items-start gap-2.5">
+                                    <span class="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">1</span>
+                                    <div>
+                                        <p class="font-bold text-slate-900">Define Your Social Targets</p>
+                                        <p class="text-slate-600">First add your Facebook Page Names and YouTube Channel IDs in the <a href="javascript:void(0)" @click="setTab('taxonomy')" class="text-indigo-600 font-bold underline">Channels &amp; Taxonomy</a> tab. These channels serve as target options whenever you publish from the dashboard.</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-start gap-2.5">
+                                    <span class="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">2</span>
+                                    <div>
+                                        <p class="font-bold text-slate-900">Generate Your API Credentials</p>
+                                        <div class="mt-1 space-y-1 text-slate-600">
+                                            <p><strong>• YouTube Data API v3:</strong> Visit <a href="https://console.cloud.google.com" target="_blank" class="text-indigo-600 underline font-semibold">Google Cloud Console</a> &rarr; APIs &amp; Services &rarr; Enable <em>YouTube Data API v3</em> &rarr; Credentials &rarr; Create API Key. Paste below.</p>
+                                            <p><strong>• Meta (Facebook) Page Token:</strong> Visit <a href="https://developers.facebook.com" target="_blank" class="text-indigo-600 underline font-semibold">Meta for Developers</a> &rarr; Tools &rarr; Graph API Explorer. Select your Page and request permissions: <code>pages_manage_posts</code>, <code>pages_read_engagement</code>, <code>pages_show_list</code>. Generate a permanent Page Access Token and paste below.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex items-start gap-2.5">
+                                    <span class="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">3</span>
+                                    <div>
+                                        <p class="font-bold text-slate-900">Save &amp; Start Publishing Directly</p>
+                                        <p class="text-slate-600">Click <em>Save API Keys</em>. Now, using <strong>🎬 Publish Video / Reel</strong> on your dashboard will directly upload videos to your channels, generate live links, and auto-sync Views, Likes, and Reach metrics into your task reports!</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         
                         <form action="{{ route('settings.api-keys.update') }}" method="POST" class="space-y-4">
                             @csrf
@@ -1266,7 +1351,7 @@
                             @forelse($activityLogs as $log)
                                 @php
                                     $act = $log->action;
-                                    if (in_array($act, ['created', 'updated', 'deleted', 'link_updated', 'bulk_updated', 'bulk_deleted', 'exported_csv'])) {
+                                    if (in_array($act, ['created', 'updated', 'deleted', 'link_updated', 'bulk_updated', 'bulk_deleted', 'exported_csv', 'social_published'])) {
                                         $cat = 'tasks';
                                     } elseif (in_array($act, ['attendance_checkin', 'attendance_checkout', 'leave_requested'])) {
                                         $cat = 'attendance';
@@ -1279,6 +1364,7 @@
                                         'updated', 'settings_updated', 'form_config_updated', 'webhooks_updated', 'api_keys_updated', 'column_toggled', 'permissions_updated' => 'bg-amber-100 text-amber-800 border border-amber-200',
                                         'link_updated' => 'bg-blue-100 text-blue-800 border border-blue-200',
                                         'bulk_updated', 'exported_csv' => 'bg-indigo-100 text-indigo-800 border border-indigo-200',
+                                        'social_published' => 'bg-fuchsia-100 text-fuchsia-800 border border-fuchsia-200',
                                         'attendance_checkin', 'attendance_checkout', 'leave_requested' => 'bg-teal-100 text-teal-800 border border-teal-200',
                                         'deleted', 'bulk_deleted', 'designation_deleted' => 'bg-rose-100 text-rose-800 border border-rose-200',
                                         default => 'bg-gray-100 text-gray-700 border border-gray-200',
@@ -1389,7 +1475,8 @@
                 const allPerms = [
                     'view_tasks', 'create_tasks', 'edit_all_tasks', 'delete_tasks',
                     'quick_update_links', 'bulk_actions', 'export_tasks', 'view_calendar',
-                    'view_analytics', 'sync_social_metrics', 'manage_settings', 'view_activity_logs'
+                    'view_analytics', 'sync_social_metrics', 'manage_settings', 'view_activity_logs',
+                    'publish_social_posts'
                 ];
                 this.selectedDesg.permissions = [...allPerms];
                 document.querySelectorAll('#designation-permissions-form input[type=checkbox]').forEach(cb => {
