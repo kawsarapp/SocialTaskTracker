@@ -852,7 +852,7 @@
                         </div>
 
                         <!-- Modal Form -->
-                        <form action="{{ route('social-publish.store') }}" method="POST" enctype="multipart/form-data" class="p-6 space-y-4" @submit="isPublishing = true">
+                        <form action="{{ Route::has('social-publish.store') ? route('social-publish.store') : url('/social-publish') }}" method="POST" enctype="multipart/form-data" class="p-6 space-y-4" @submit="isPublishing = true">
                             @csrf
 
                             @if($facebookPages->isEmpty() && $youtubeChannels->isEmpty())
