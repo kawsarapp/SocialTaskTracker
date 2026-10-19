@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\YoutubeChannel;
 use App\Models\Shift;
 use App\Models\ActivityLog;
+use App\Services\SocialConnectionTestService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -443,6 +444,54 @@ class SettingsController extends Controller
         } catch (\Exception $e) {
             return redirect()->route('settings.index')->with('error', 'Sync failed: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Live diagnostic test for Facebook Page Access Token and permissions.
+     */
+    public function testFacebookConnection(Request $request, SocialConnectionTestService $testService)
+    {
+        $this->checkAccess();
+
+        $tenant = $this->resolveTenant();
+        $token = $request->input('token') ?? $request->input('facebook_page_access_token');
+        $pageId = $request->input('page_id');
+
+        $result = $testService->testFacebookToken($token, $tenant, $pageId);
+
+        if ($request->wantsJson() || $request->ajax() || $request->header('Accept') === 'application/json') {
+            return response()->json($result);
+        }
+
+        if ($result['success']) {
+            return redirect()->route('settings.index')->with('success', $result['summary_message']);
+        }
+
+        return redirect()->route('settings.index')->with('error', $result['error'] . ' ' . ($result['troubleshooting'] ?? ''));
+    }
+
+    /**
+     * Live diagnostic test for YouTube Data API v3 Key.
+     */
+    public function testYoutubeConnection(Request $request, SocialConnectionTestService $testService)
+    {
+        $this->checkAccess();
+
+        $tenant = $this->resolveTenant();
+        $apiKey = $request->input('api_key') ?? $request->input('youtube_api_key');
+        $channelId = $request->input('channel_id');
+
+        $result = $testService->testYoutubeApiKey($apiKey, $tenant, $channelId);
+
+        if ($request->wantsJson() || $request->ajax() || $request->header('Accept') === 'application/json') {
+            return response()->json($result);
+        }
+
+        if ($result['success']) {
+            return redirect()->route('settings.index')->with('success', $result['summary_message']);
+        }
+
+        return redirect()->route('settings.index')->with('error', $result['error'] . ' ' . ($result['troubleshooting'] ?? ''));
     }
 
     /**

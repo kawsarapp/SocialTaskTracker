@@ -76,6 +76,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/settings/webhooks', [SettingsController::class, 'updateWebhookSettings'])->name('settings.webhooks.update');
     Route::post('/settings/api-keys', [SettingsController::class, 'updateApiSettings'])->name('settings.api-keys.update');
     Route::post('/settings/api-keys/sync', [SettingsController::class, 'triggerBulkSync'])->name('settings.api-keys.sync');
+    Route::post('/settings/api-keys/test-facebook', [SettingsController::class, 'testFacebookConnection'])->name('settings.api-keys.test-facebook');
+    Route::post('/settings/api-keys/test-youtube', [SettingsController::class, 'testYoutubeConnection'])->name('settings.api-keys.test-youtube');
     Route::post('/settings/google-sheets/settings', [GoogleSheetController::class, 'updateSettings'])->name('settings.google-sheets.update');
     Route::post('/settings/google-sheets/sync', [GoogleSheetController::class, 'sync'])->name('settings.google-sheets.sync');
 
