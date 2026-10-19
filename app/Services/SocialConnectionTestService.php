@@ -73,9 +73,10 @@ class SocialConnectionTestService
         }
 
         try {
-            // 1. Fetch Page Identity & Basic Profile
+            // 1. Fetch Universal Identity using safe fields ('id,name')
+            // This never fails on either User or Page tokens
             $meResponse = Http::timeout(12)->get('https://graph.facebook.com/v19.0/me', [
-                'fields' => 'id,name,category,link,is_published',
+                'fields' => 'id,name',
                 'access_token' => $token,
             ]);
 
@@ -83,12 +84,9 @@ class SocialConnectionTestService
                 return $this->parseFacebookError($meResponse->json('error') ?? [], $meResponse->status());
             }
 
-            $pageData = $meResponse->json();
-            $detectedPageId = $pageData['id'] ?? null;
-            $detectedPageName = $pageData['name'] ?? 'Facebook Page';
-            $category = $pageData['category'] ?? null;
-            $link = $pageData['link'] ?? null;
-            $isPublished = $pageData['is_published'] ?? true;
+            $baseData = $meResponse->json();
+            $detectedPageId = $baseData['id'] ?? null;
+            $detectedPageName = $baseData['name'] ?? 'Facebook Account';
 
             // 2. Query Granted Permissions on this Token
             $grantedPermissions = [];
@@ -105,8 +103,66 @@ class SocialConnectionTestService
                 }
             }
 
-            // Fallback: If /me/permissions returned empty data or was restricted for this token type,
-            // but /me succeeded, we know at least basic page reading works.
+            // 3. Detect Token Type: Check /me/accounts (User tokens list managed pages here)
+            $isUserToken = false;
+            $managedPages = [];
+
+            try {
+                $accountsResponse = Http::timeout(10)->get('https://graph.facebook.com/v19.0/me/accounts', [
+                    'fields' => 'id,name,access_token,category,tasks',
+                    'access_token' => $token,
+                ]);
+
+                if ($accountsResponse->successful()) {
+                    $rawPages = $accountsResponse->json('data') ?? [];
+                    // If /me/accounts returns 200, this is a User Access Token
+                    $isUserToken = true;
+                    foreach ($rawPages as $page) {
+                        $managedPages[] = [
+                            'id' => $page['id'] ?? null,
+                            'name' => $page['name'] ?? 'Unnamed Page',
+                            'category' => $page['category'] ?? null,
+                            'tasks' => $page['tasks'] ?? [],
+                        ];
+                    }
+                }
+            } catch (\Exception $e) {
+                // If accounts edge was restricted or not available, continue to page check
+            }
+
+            // Query page-specific fields (category, link, is_published) safely
+            $category = null;
+            $link = null;
+            $isPublished = true;
+
+            try {
+                $pageCheckResponse = Http::timeout(10)->get('https://graph.facebook.com/v19.0/me', [
+                    'fields' => 'category,link,is_published',
+                    'access_token' => $token,
+                ]);
+
+                if ($pageCheckResponse->successful()) {
+                    $pageData = $pageCheckResponse->json();
+                    $category = $pageData['category'] ?? null;
+                    $link = $pageData['link'] ?? null;
+                    $isPublished = $pageData['is_published'] ?? true;
+                    if (empty($managedPages)) {
+                        $isUserToken = false;
+                    }
+                } else {
+                    $err = $pageCheckResponse->json('error') ?? [];
+                    $errMsg = (string)($err['message'] ?? '');
+                    if (Str::contains($errMsg, 'node type (User)') || Str::contains($errMsg, 'category')) {
+                        $isUserToken = true;
+                    }
+                }
+            } catch (\Exception $e) {
+                // If page fields check threw an exception, keep category/link null
+            }
+
+            $tokenType = $isUserToken ? 'user_token' : 'page_token';
+
+            // Fallback & permissions evaluation
             $evaluatedGranted = [];
             $evaluatedMissing = [];
 
@@ -127,32 +183,60 @@ class SocialConnectionTestService
 
             // Determine publishing & syncing capabilities
             $hasPermsData = !empty($grantedPermissions);
-            $canPublishPosts = in_array('pages_manage_posts', $grantedPermissions, true);
-            $canPublishReels = in_array('publish_video', $grantedPermissions, true) && $canPublishPosts;
+            $canPublishPosts = !$isUserToken && in_array('pages_manage_posts', $grantedPermissions, true);
+            $canPublishReels = !$isUserToken && in_array('publish_video', $grantedPermissions, true) && $canPublishPosts;
             $canSyncAnalytics = in_array('pages_read_engagement', $grantedPermissions, true) || in_array('read_insights', $grantedPermissions, true);
 
-            // Construct summary
-            $missingCount = count($evaluatedMissing);
-            if ($missingCount === 0) {
-                $status = 'healthy';
-                $summary = "All recommended Facebook permissions are granted! Direct publishing and metrics sync are fully operational for '{$detectedPageName}'.";
-            } elseif (!$canPublishPosts && !$canSyncAnalytics && $hasPermsData) {
+            // Construct summary & token guidance
+            $tokenGuidance = null;
+            if ($isUserToken) {
                 $status = 'restricted';
-                $summary = "Connected to '{$detectedPageName}', but critical permissions (publishing & analytics) are missing.";
+                $pageCount = count($managedPages);
+                $summary = $pageCount > 0
+                    ? "User Access Token detected for '{$detectedPageName}'. Found {$pageCount} Facebook Page(s) managed by this account. A Page Access Token is required to publish directly."
+                    : "User Access Token detected for '{$detectedPageName}'. Meta requires a Facebook Page Access Token to publish posts and reels.";
+
+                $tokenGuidance = [
+                    'explanation_bn' => 'আপনি যে টোকেনটি দিয়েছেন এটি একটি User Access Token (ব্যবহারকারীর ব্যক্তিগত টোকেন)। ফেসবুক পেজে সরাসরি ভিডিও/রিলস ও পোস্ট পাবলিশ করার জন্য Meta পলিসি অনুযায়ী Page Access Token প্রয়োজন।',
+                    'explanation_en' => 'The provided token is a User Access Token. Meta policy requires a Page Access Token to publish videos, reels, and feed posts directly to your Facebook Page.',
+                    'steps_bn' => [
+                        'Meta Graph API Explorer (https://developers.facebook.com/tools/explorer/) এ যান।',
+                        'ডানপাশের "User or Page" ড্রপডাউনে "User Token" এর জায়গায় আপনার Facebook Page সিলেক্ট করুন।',
+                        '"Generate Access Token" এ ক্লিক করে Page Access Token কপি করে এখানে পেস্ট করুন।'
+                    ],
+                    'steps_en' => [
+                        'Go to Meta Graph API Explorer (https://developers.facebook.com/tools/explorer/).',
+                        'In the "User or Page" dropdown on the right side, switch from "User Token" to your Facebook Page.',
+                        'Click "Generate Access Token", copy the new Page Token, and paste it here.'
+                    ],
+                ];
             } else {
-                $status = 'partial';
-                $summary = "Connected to '{$detectedPageName}'. {$missingCount} permission(s) missing for full automation.";
+                $missingCount = count($evaluatedMissing);
+                if ($missingCount === 0) {
+                    $status = 'healthy';
+                    $summary = "All recommended Facebook permissions are granted! Direct publishing and metrics sync are fully operational for '{$detectedPageName}'.";
+                } elseif (!$canPublishPosts && !$canSyncAnalytics && $hasPermsData) {
+                    $status = 'restricted';
+                    $summary = "Connected to '{$detectedPageName}', but critical permissions (publishing & analytics) are missing.";
+                } else {
+                    $status = 'partial';
+                    $summary = "Connected to '{$detectedPageName}'. {$missingCount} permission(s) missing for full automation.";
+                }
             }
 
             return [
                 'success' => true,
                 'platform' => 'facebook',
                 'status' => $status,
+                'token_type' => $tokenType,
+                'is_user_token' => $isUserToken,
                 'account_name' => $detectedPageName,
                 'account_id' => $detectedPageId,
                 'category' => $category,
                 'link' => $link,
                 'is_published' => $isPublished,
+                'pages' => $managedPages,
+                'token_guidance' => $tokenGuidance,
                 'has_permissions_data' => $hasPermsData,
                 'granted_permissions' => $grantedPermissions,
                 'granted_details' => $evaluatedGranted,
@@ -212,8 +296,19 @@ class SocialConnectionTestService
             $errorTitle = 'Meta Rate Limit Exceeded (Error ' . $code . ')';
             $troubleshooting = 'Too many requests made to Meta Graph API recently. Meta temporarily throttled calls. Please wait 10-15 minutes and retry.';
         } elseif ($code === 100) {
-            $errorTitle = 'Invalid Parameter (Error 100)';
-            $troubleshooting = 'The request parameter or endpoint was rejected by Meta. Check if the token is a Page token rather than a User or App token.';
+            if (Str::contains($rawMessage, 'nonexisting field') || Str::contains($rawMessage, 'node type (User)')) {
+                $errorTitle = 'User Access Token Detected (Page Token Required)';
+                $troubleshooting = "আপনি যে টোকেনটি দিয়েছেন এটি একটি User Access Token (ব্যবহারকারীর ব্যক্তিগত টোকেন)। ফেসবুক পেজে সরাসরি ভিডিও/রিলস ও পোস্ট পাবলিশ করার জন্য Meta পলিসি অনুযায়ী Page Access Token প্রয়োজন।\n\n"
+                    . "কীভাবে Page Access Token পাবেন:\n"
+                    . "১. Meta Graph API Explorer (https://developers.facebook.com/tools/explorer/) এ যান।\n"
+                    . "২. ডানপাশের 'User or Page' ড্রপডাউনে 'User Token' এর জায়গায় আপনার Facebook Page সিলেক্ট করুন।\n"
+                    . "৩. 'Generate Access Token' এ ক্লিক করে Page Access Token কপি করে এখানে পেস্ট করুন।\n\n"
+                    . "English:\n"
+                    . "You provided a User Access Token instead of a Page Access Token. On Meta Graph API, User tokens cannot access Page-specific fields (category, is_published) or publish directly. Switch to your Page in Graph API Explorer to generate a Page Access Token.";
+            } else {
+                $errorTitle = 'Invalid Parameter (Error 100)';
+                $troubleshooting = 'The request parameter or endpoint was rejected by Meta. Check if the token is a Page token rather than a User or App token.';
+            }
         } else {
             $errorTitle = "Meta API Error (HTTP {$httpStatus})";
             $troubleshooting = $rawMessage ?: 'Please verify that your Meta App is published or in Live mode, and that your Page Access Token is active.';

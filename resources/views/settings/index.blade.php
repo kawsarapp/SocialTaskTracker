@@ -1808,13 +1808,89 @@
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center gap-2">
                                         <h4 class="font-bold text-sm"
-                                            x-text="socialTestResult.status === 'healthy' ? 'API Connection Healthy & Verified' : 'Connected with Missing Permissions'"></h4>
+                                            x-text="socialTestResult.status === 'healthy' ? 'API Connection Healthy & Verified' : (socialTestResult.token_type === 'user_token' ? '⚠️ User Access Token Detected (Page Token Required for Publishing)' : 'Connected with Missing Permissions')"></h4>
                                         <span class="px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-full"
                                               :class="socialTestResult.status === 'healthy' ? 'bg-emerald-200 text-emerald-800' : 'bg-amber-200 text-amber-800'"
-                                              x-text="socialTestResult.status === 'healthy' ? 'Active' : 'Attention Needed'"></span>
+                                              x-text="socialTestResult.status === 'healthy' ? 'Active' : (socialTestResult.token_type === 'user_token' ? 'Page Token Required' : 'Attention Needed')"></span>
                                     </div>
                                     <p class="text-xs mt-1 leading-relaxed font-medium" x-text="socialTestResult.summary_message"></p>
                                 </div>
+                            </div>
+                        </template>
+
+                        <!-- User Access Token Dedicated Warning & Step-by-Step Guidance Banner -->
+                        <template x-if="socialTestResult && socialTestResult.token_type === 'user_token'">
+                            <div class="p-4 rounded-xl bg-amber-50/90 border-2 border-amber-300 text-amber-950 space-y-3.5 shadow-xs">
+                                <div class="flex items-start gap-3">
+                                    <div class="w-9 h-9 rounded-xl bg-amber-200 text-amber-800 flex items-center justify-center text-xl shrink-0 font-bold">
+                                        ⚠️
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <h4 class="font-extrabold text-sm text-amber-900">
+                                                ⚠️ User Access Token Detected (Page Token Required for Publishing)
+                                            </h4>
+                                            <span class="px-2 py-0.5 text-[10px] font-extrabold uppercase bg-amber-200 text-amber-900 rounded-full">
+                                                Action Required
+                                            </span>
+                                        </div>
+                                        <p class="text-xs mt-1 text-amber-900/95 leading-relaxed font-medium">
+                                            আপনি যে টোকেনটি দিয়েছেন এটি একটি <strong>User Access Token</strong> (ব্যবহারকারীর ব্যক্তিগত টোকেন)। ফেসবুক পেজে সরাসরি ভিডিও/রিলস ও পোস্ট পাবলিশ করার জন্য Meta পলিসি অনুযায়ী <strong>Page Access Token</strong> প্রয়োজন।
+                                        </p>
+                                        <p class="text-[11px] text-amber-800 mt-0.5">
+                                            The token provided is an account user token. Meta Graph API requires a dedicated <strong>Page Access Token</strong> to create feed posts and upload video reels to your page.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- Step-by-Step Guidance Box -->
+                                <div class="bg-white p-3.5 rounded-lg border border-amber-200 text-xs space-y-2">
+                                    <span class="font-bold text-amber-950 flex items-center gap-1.5 text-xs">
+                                        <span>📋</span>
+                                        <span>কীভাবে Page Access Token পাবেন (How to get Page Access Token):</span>
+                                    </span>
+                                    <ol class="list-decimal list-inside space-y-1.5 text-slate-700 font-medium text-[11.5px] leading-relaxed">
+                                        <li>
+                                            <span>Meta Graph API Explorer-এ যান: </span>
+                                            <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-800 hover:underline font-bold inline-flex items-center gap-0.5">
+                                                developers.facebook.com/tools/explorer
+                                                <svg class="w-3 h-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                            </a>
+                                        </li>
+                                        <li>
+                                            ডানপাশের <strong>"User or Page"</strong> ড্রপডাউনে "User Token" এর জায়গায় আপনার <strong>Facebook Page</strong> সিলেক্ট করুন।
+                                        </li>
+                                        <li>
+                                            <strong>"Generate Access Token"</strong> এ ক্লিক করে Page Access Token কপি করে সেটিংস পেজে পেস্ট করুন।
+                                        </li>
+                                    </ol>
+                                </div>
+
+                                <!-- Detected Managed Pages List -->
+                                <template x-if="socialTestResult.pages && socialTestResult.pages.length > 0">
+                                    <div class="space-y-2 pt-1">
+                                        <span class="text-[11px] font-extrabold uppercase tracking-wider text-amber-900 flex items-center gap-1">
+                                            <span>📄</span>
+                                            <span>Detected Facebook Pages Managed by this Account (<span x-text="socialTestResult.pages.length"></span>)</span>
+                                        </span>
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            <template x-for="page in socialTestResult.pages" :key="page.id">
+                                                <div class="bg-white p-2.5 rounded-lg border border-amber-200 flex items-center justify-between gap-2 shadow-2xs">
+                                                    <div class="min-w-0">
+                                                        <span class="font-bold text-xs text-slate-900 truncate block" x-text="page.name"></span>
+                                                        <span class="text-[10px] text-gray-500 font-mono block" x-text="'ID: ' + page.id"></span>
+                                                    </div>
+                                                    <span class="px-2 py-0.5 text-[9px] font-bold bg-blue-50 text-blue-700 rounded border border-blue-200 shrink-0" x-text="page.category || 'Page'"></span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+                                <template x-if="!socialTestResult.pages || socialTestResult.pages.length === 0">
+                                    <p class="text-[11px] text-amber-800 italic bg-amber-100/60 p-2.5 rounded-lg border border-amber-200">
+                                        No Facebook Pages found under this user account, or 'pages_show_list' permission was not granted. Ensure your Facebook account has admin/editor access to your Page in Meta Business Suite.
+                                    </p>
+                                </template>
                             </div>
                         </template>
 
@@ -1838,14 +1914,14 @@
                                         <span class="text-[11px] font-bold uppercase tracking-wider text-rose-800 flex items-center gap-1.5 mb-1">
                                             <span>💡 How to resolve this issue:</span>
                                         </span>
-                                        <p class="text-xs text-slate-700 leading-relaxed font-medium" x-text="socialTestResult.troubleshooting"></p>
+                                        <p class="text-xs text-slate-700 leading-relaxed font-medium whitespace-pre-line" x-text="socialTestResult.troubleshooting"></p>
                                     </div>
                                 </div>
                             </div>
                         </template>
 
-                        <!-- Facebook Identity Details Card -->
-                        <template x-if="socialTestResult && socialTestPlatform === 'facebook' && socialTestResult.account_name">
+                        <!-- Facebook Identity Details Card (Page Token) -->
+                        <template x-if="socialTestResult && socialTestPlatform === 'facebook' && socialTestResult.account_name && socialTestResult.token_type !== 'user_token'">
                             <div class="bg-slate-50 rounded-xl p-3.5 border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                                 <div>
                                     <span class="text-[10px] uppercase font-bold text-gray-400 block">Page Name</span>
@@ -1862,6 +1938,24 @@
                                 <div>
                                     <span class="text-[10px] uppercase font-bold text-gray-400 block">Page Status</span>
                                     <span class="font-semibold text-emerald-600 block" x-text="socialTestResult.is_published ? 'Published (Live)' : 'Unpublished'"></span>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Facebook Identity Details Card (User Token) -->
+                        <template x-if="socialTestResult && socialTestPlatform === 'facebook' && socialTestResult.token_type === 'user_token'">
+                            <div class="bg-slate-50 rounded-xl p-3.5 border border-slate-200 grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                                <div>
+                                    <span class="text-[10px] uppercase font-bold text-gray-400 block">Facebook User Account</span>
+                                    <span class="font-bold text-slate-800 truncate block" x-text="socialTestResult.account_name"></span>
+                                </div>
+                                <div>
+                                    <span class="text-[10px] uppercase font-bold text-gray-400 block">User ID</span>
+                                    <span class="font-mono text-slate-700 truncate block" x-text="socialTestResult.account_id || 'N/A'"></span>
+                                </div>
+                                <div>
+                                    <span class="text-[10px] uppercase font-bold text-gray-400 block">Token Type</span>
+                                    <span class="font-bold text-amber-700 block">User Access Token</span>
                                 </div>
                             </div>
                         </template>
@@ -1976,7 +2070,7 @@
                                             <template x-if="socialTestPlatform === 'facebook'">
                                                 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold"
                                                       :class="socialTestResult.capabilities.can_publish_reels ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'">
-                                                    <span x-text="socialTestResult.capabilities.can_publish_reels ? '🟢 Ready to Publish' : '🔴 Missing Scopes'"></span>
+                                                    <span x-text="socialTestResult.capabilities.can_publish_reels ? '🟢 Ready to Publish' : (socialTestResult.token_type === 'user_token' ? '🔴 Needs Page Token' : '🔴 Missing Scopes')"></span>
                                                 </span>
                                             </template>
                                             <template x-if="socialTestPlatform === 'youtube'">
@@ -1996,7 +2090,7 @@
                                             <template x-if="socialTestPlatform === 'facebook'">
                                                 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold"
                                                       :class="socialTestResult.capabilities.can_publish_posts ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'">
-                                                    <span x-text="socialTestResult.capabilities.can_publish_posts ? '🟢 Ready to Publish' : '🔴 Missing Scopes'"></span>
+                                                    <span x-text="socialTestResult.capabilities.can_publish_posts ? '🟢 Ready to Publish' : (socialTestResult.token_type === 'user_token' ? '🔴 Needs Page Token' : '🔴 Missing Scopes')"></span>
                                                 </span>
                                             </template>
                                             <template x-if="socialTestPlatform === 'youtube'">

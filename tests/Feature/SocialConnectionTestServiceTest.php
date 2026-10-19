@@ -163,6 +163,84 @@ class SocialConnectionTestServiceTest extends TestCase
         $this->assertStringContainsString('Invalid Access Token', $result['error']);
     }
 
+    public function test_facebook_test_detects_user_access_token_and_returns_managed_pages_and_guidance(): void
+    {
+        Http::fake([
+            'https://graph.facebook.com/v19.0/me?fields=id%2Cname*' => Http::response([
+                'id' => 'user_12345',
+                'name' => 'Kawsar Ahmed',
+            ], 200),
+            'https://graph.facebook.com/v19.0/me/accounts*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 'page_98765',
+                        'name' => 'Kawsar Tech Media',
+                        'category' => 'Technology',
+                        'tasks' => ['MANAGE', 'CREATE_CONTENT'],
+                    ],
+                    [
+                        'id' => 'page_54321',
+                        'name' => 'Bangladesh News Hub',
+                        'category' => 'News & Media',
+                        'tasks' => ['MANAGE'],
+                    ]
+                ]
+            ], 200),
+            'https://graph.facebook.com/v19.0/me/permissions*' => Http::response([
+                'data' => [
+                    ['permission' => 'pages_show_list', 'status' => 'granted'],
+                    ['permission' => 'pages_read_engagement', 'status' => 'granted'],
+                    ['permission' => 'pages_manage_posts', 'status' => 'granted'],
+                ]
+            ], 200),
+            'https://graph.facebook.com/v19.0/me?fields=category%2Clink%2Cis_published*' => Http::response([
+                'error' => [
+                    'message' => '(#100) Tried accessing nonexisting field (category) on node type (User)',
+                    'type' => 'OAuthException',
+                    'code' => 100,
+                ]
+            ], 400),
+        ]);
+
+        $result = $this->service->testFacebookToken('user_token_abc', $this->tenant);
+
+        $this->assertTrue($result['success']);
+        $this->assertEquals('user_token', $result['token_type']);
+        $this->assertTrue($result['is_user_token']);
+        $this->assertEquals('restricted', $result['status']);
+        $this->assertCount(2, $result['pages']);
+        $this->assertEquals('Kawsar Tech Media', $result['pages'][0]['name']);
+        $this->assertEquals('page_98765', $result['pages'][0]['id']);
+        $this->assertNotNull($result['token_guidance']);
+        $this->assertStringContainsString('User Access Token', $result['token_guidance']['explanation_bn']);
+        $this->assertStringContainsString('Meta Graph API Explorer', $result['token_guidance']['steps_bn'][0]);
+        // User tokens cannot directly publish
+        $this->assertFalse($result['capabilities']['can_publish_posts']);
+        $this->assertFalse($result['capabilities']['can_publish_reels']);
+    }
+
+    public function test_facebook_test_diagnoses_nonexisting_field_error_with_user_token_guidance(): void
+    {
+        Http::fake([
+            'https://graph.facebook.com/v19.0/me?*' => Http::response([
+                'error' => [
+                    'message' => '(#100) Tried accessing nonexisting field (category) on node type (User)',
+                    'type' => 'OAuthException',
+                    'code' => 100,
+                ]
+            ], 400),
+        ]);
+
+        $result = $this->service->testFacebookToken('user_token_category_fail', $this->tenant);
+
+        $this->assertFalse($result['success']);
+        $this->assertEquals(100, $result['error_code']);
+        $this->assertEquals('User Access Token Detected (Page Token Required)', $result['error']);
+        $this->assertStringContainsString('User Access Token', $result['troubleshooting']);
+        $this->assertStringContainsString('Meta Graph API Explorer', $result['troubleshooting']);
+        $this->assertStringContainsString('Page Access Token', $result['troubleshooting']);
+    }
+
     /**
      * YouTube API Key Tests
      */
@@ -330,5 +408,7 @@ class SocialConnectionTestServiceTest extends TestCase
         $response->assertSee('Test Facebook Token &amp; Permissions', false);
         $response->assertSee('socialTestModalOpen');
         $response->assertSee('runSocialTest');
+        $response->assertSee('User Access Token Detected (Page Token Required for Publishing)');
+        $response->assertSee('developers.facebook.com/tools/explorer');
     }
 }
