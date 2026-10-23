@@ -391,10 +391,45 @@ class SocialConnectionTestServiceTest extends TestCase
 
     public function test_unauthorized_staff_cannot_run_social_tests(): void
     {
+        $restrictedDesignation = \App\Models\Designation::create([
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Restricted Staff',
+            'permissions' => ['view_tasks'],
+        ]);
+        $this->staff->update(['designation_id' => $restrictedDesignation->id]);
+
         $response = $this->actingAs($this->staff)
             ->postJson(route('settings.api-keys.test-facebook'));
 
         $response->assertStatus(403);
+    }
+
+    public function test_staff_with_publish_permission_can_run_social_tests(): void
+    {
+        $designation = \App\Models\Designation::create([
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Social Publisher',
+            'permissions' => ['publish_social_posts'],
+        ]);
+        $this->staff->update(['designation_id' => $designation->id]);
+
+        Http::fake([
+            'graph.facebook.com/*' => Http::response([
+                'id' => '1234567890',
+                'name' => 'Workspace Page Desk',
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($this->staff)
+            ->postJson(route('settings.api-keys.test-facebook'), [
+                'token' => 'live_token_abc',
+            ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'platform' => 'facebook',
+        ]);
     }
 
     public function test_settings_index_page_renders_test_buttons_and_modal(): void
@@ -406,9 +441,23 @@ class SocialConnectionTestServiceTest extends TestCase
         $response->assertSee('Test YouTube Connection');
         $response->assertSee('Test YouTube API Key');
         $response->assertSee('Test Facebook Token &amp; Permissions', false);
+        $response->assertSee('Test YouTube API &amp; Channel', false);
+        $response->assertSee('Live Diagnostic Testing Bar');
         $response->assertSee('socialTestModalOpen');
         $response->assertSee('runSocialTest');
         $response->assertSee('User Access Token Detected (Page Token Required for Publishing)');
         $response->assertSee('developers.facebook.com/tools/explorer');
+    }
+
+    public function test_tasks_index_publish_modal_renders_social_test_buttons_and_modal(): void
+    {
+        $response = $this->actingAs($this->admin)->get(route('tasks.index'));
+
+        $response->assertStatus(200);
+        $response->assertSee('Test Connection &amp; Permissions', false);
+        $response->assertSee('Test Facebook');
+        $response->assertSee('Test YouTube');
+        $response->assertSee('socialTestModalOpen');
+        $response->assertSee('runSocialTest');
     }
 }

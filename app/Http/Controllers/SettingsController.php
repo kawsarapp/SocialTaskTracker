@@ -42,6 +42,18 @@ class SettingsController extends Controller
     }
 
     /**
+     * Check access for live social API diagnostics.
+     * Accessible by admins, team leaders, and users with manage_settings or publish_social_posts permission.
+     */
+    private function checkSocialTestAccess(): void
+    {
+        $user = Auth::user();
+        if (!$user || (!$user->isAdmin() && !$user->isSuperAdmin() && !$user->isTeamLeader() && !$user->hasPermission('manage_settings') && !$user->hasPermission('publish_social_posts'))) {
+            abort(403, 'Unauthorized access.');
+        }
+    }
+
+    /**
      * Resolve the active tenant for the current user (falls back to session or first tenant for Super Admin).
      */
     private function resolveTenant(): ?\App\Models\Tenant
@@ -451,7 +463,7 @@ class SettingsController extends Controller
      */
     public function testFacebookConnection(Request $request, SocialConnectionTestService $testService)
     {
-        $this->checkAccess();
+        $this->checkSocialTestAccess();
 
         $tenant = $this->resolveTenant();
         $token = $request->input('token') ?? $request->input('facebook_page_access_token');
@@ -475,7 +487,7 @@ class SettingsController extends Controller
      */
     public function testYoutubeConnection(Request $request, SocialConnectionTestService $testService)
     {
-        $this->checkAccess();
+        $this->checkSocialTestAccess();
 
         $tenant = $this->resolveTenant();
         $apiKey = $request->input('api_key') ?? $request->input('youtube_api_key');

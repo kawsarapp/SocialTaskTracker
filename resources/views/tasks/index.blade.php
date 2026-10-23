@@ -118,6 +118,84 @@
             allPageTaskIds: {{ json_encode($pageTaskIds) }},
             bulkType: 'assign_team',
             customFieldsMeta: {{ json_encode($customFieldsMeta) }},
+            socialTestModalOpen: false,
+            socialTestLoading: false,
+            socialTestPlatform: '',
+            socialTestTargetName: '',
+            socialTestResult: null,
+            async runSocialTest(platform, extraParam = '') {
+                this.socialTestPlatform = platform;
+                this.socialTestTargetName = extraParam || '';
+                this.socialTestModalOpen = true;
+                this.socialTestLoading = true;
+                this.socialTestResult = null;
+
+                const url = platform === 'facebook'
+                    ? '{{ route('settings.api-keys.test-facebook') }}'
+                    : '{{ route('settings.api-keys.test-youtube') }}';
+
+                let payload = {};
+                if (platform === 'facebook') {
+                    const fbInput = document.getElementById('facebook_page_access_token');
+                    if (fbInput && fbInput.value) {
+                        payload.token = fbInput.value.trim();
+                    }
+                    if (extraParam) {
+                        payload.page_id = extraParam;
+                    } else {
+                        const fbSelect = document.querySelector('select[name="facebook_page_id"]');
+                        if (fbSelect && fbSelect.value) {
+                            const opt = fbSelect.options[fbSelect.selectedIndex];
+                            if (opt && opt.text && opt.value) {
+                                payload.page_id = opt.text;
+                                this.socialTestTargetName = opt.text;
+                            }
+                        }
+                    }
+                } else {
+                    const ytInput = document.getElementById('youtube_api_key');
+                    if (ytInput && ytInput.value) {
+                        payload.api_key = ytInput.value.trim();
+                    }
+                    if (extraParam) {
+                        payload.channel_id = extraParam;
+                    } else {
+                        const ytSelect = document.querySelector('select[name="youtube_channel_id"]');
+                        if (ytSelect && ytSelect.value) {
+                            const opt = ytSelect.options[ytSelect.selectedIndex];
+                            if (opt && opt.text && opt.value) {
+                                payload.channel_id = opt.text;
+                                this.socialTestTargetName = opt.text;
+                            }
+                        }
+                    }
+                }
+
+                try {
+                    const csrfMeta = document.querySelector('meta[name=csrf-token]');
+                    const csrfToken = csrfMeta ? csrfMeta.content : '{{ csrf_token() }}';
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json();
+                    this.socialTestResult = data;
+                } catch (e) {
+                    this.socialTestResult = {
+                        success: false,
+                        platform: platform,
+                        error: 'Connection error while communicating with server.',
+                        troubleshooting: e.message || 'Network error or request timeout.'
+                    };
+                } finally {
+                    this.socialTestLoading = false;
+                }
+            },
             openPublishModalWithChannel(channel) {
                 this.targetFb = (channel === 'facebook' || channel === 'all');
                 this.targetYt = (channel === 'youtube' || channel === 'all');
@@ -1006,13 +1084,21 @@
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <!-- Facebook Page -->
                                     <div class="p-3.5 rounded-xl border transition" :class="targetFb ? 'bg-blue-50/70 border-blue-200 ring-1 ring-blue-300' : 'bg-slate-50 border-gray-200'">
-                                        <label class="flex items-center gap-2.5 cursor-pointer select-none">
-                                            <input type="checkbox" name="platforms[]" value="facebook" x-model="targetFb" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                                            <div class="flex items-center gap-1.5 text-xs font-bold text-blue-900">
-                                                <svg class="w-4 h-4 fill-current text-blue-600" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                                                <span>Facebook Page</span>
-                                            </div>
-                                        </label>
+                                        <div class="flex items-center justify-between">
+                                            <label class="flex items-center gap-2.5 cursor-pointer select-none">
+                                                <input type="checkbox" name="platforms[]" value="facebook" x-model="targetFb" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                                <div class="flex items-center gap-1.5 text-xs font-bold text-blue-900">
+                                                    <svg class="w-4 h-4 fill-current text-blue-600" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                                                    <span>Facebook Page</span>
+                                                </div>
+                                            </label>
+                                            <button type="button" 
+                                                    @click="runSocialTest('facebook')"
+                                                    title="Test Facebook Token"
+                                                    class="text-[10px] font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer">
+                                                🧪 Test
+                                            </button>
+                                        </div>
                                         <div x-show="targetFb" x-transition class="mt-2.5 pt-2 border-t border-blue-100" style="display: none;">
                                             <label class="block text-[11px] font-semibold text-blue-800 mb-1">Select Facebook Page</label>
                                             <select name="facebook_page_id" class="w-full border-gray-200 rounded-lg text-xs bg-white focus:border-blue-500 focus:ring-blue-500 py-1.5">
@@ -1026,13 +1112,21 @@
 
                                     <!-- YouTube Channel -->
                                     <div class="p-3.5 rounded-xl border transition" :class="targetYt ? 'bg-rose-50/70 border-rose-200 ring-1 ring-rose-300' : 'bg-slate-50 border-gray-200'">
-                                        <label class="flex items-center gap-2.5 cursor-pointer select-none">
-                                            <input type="checkbox" name="platforms[]" value="youtube" x-model="targetYt" class="rounded border-gray-300 text-rose-600 focus:ring-rose-500">
-                                            <div class="flex items-center gap-1.5 text-xs font-bold text-rose-900">
-                                                <svg class="w-4 h-4 fill-current text-rose-600" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-                                                <span>YouTube Channel</span>
-                                            </div>
-                                        </label>
+                                        <div class="flex items-center justify-between">
+                                            <label class="flex items-center gap-2.5 cursor-pointer select-none">
+                                                <input type="checkbox" name="platforms[]" value="youtube" x-model="targetYt" class="rounded border-gray-300 text-rose-600 focus:ring-rose-500">
+                                                <div class="flex items-center gap-1.5 text-xs font-bold text-rose-900">
+                                                    <svg class="w-4 h-4 fill-current text-rose-600" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                                                    <span>YouTube Channel</span>
+                                                </div>
+                                            </label>
+                                            <button type="button" 
+                                                    @click="runSocialTest('youtube')"
+                                                    title="Test YouTube API"
+                                                    class="text-[10px] font-bold text-rose-600 hover:text-rose-800 underline cursor-pointer">
+                                                🧪 Test
+                                            </button>
+                                        </div>
                                         <div x-show="targetYt" x-transition class="mt-2.5 pt-2 border-t border-rose-100" style="display: none;">
                                             <label class="block text-[11px] font-semibold text-rose-800 mb-1">Select YouTube Channel</label>
                                             <select name="youtube_channel_id" class="w-full border-gray-200 rounded-lg text-xs bg-white focus:border-rose-500 focus:ring-rose-500 py-1.5">
@@ -1046,6 +1140,33 @@
                                 </div>
                                 <div x-show="!targetFb && !targetYt" class="mt-1.5 text-[11px] text-amber-600 font-semibold flex items-center gap-1">
                                     <span>⚠️ Please select at least one publishing channel (Facebook or YouTube).</span>
+                                </div>
+                            </div>
+
+                            <!-- Target Channels Live Diagnostic Quick Strip -->
+                            <div class="p-3.5 bg-gradient-to-r from-blue-50/70 via-slate-50 to-rose-50/70 border border-slate-200 rounded-xl space-y-2.5">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                                    <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                        <span>🧪</span>
+                                        <span>Test Connection &amp; Permissions</span>
+                                    </span>
+                                    <span class="text-[11px] text-slate-500 font-medium">Verify credentials before publishing</span>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <button type="button" 
+                                            @click="runSocialTest('facebook')"
+                                            title="Test Facebook Connection"
+                                            class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 shadow-2xs hover:shadow-xs active:scale-[0.99] transition cursor-pointer">
+                                        <span class="text-sm">📘</span>
+                                        <span>Test Facebook</span>
+                                    </button>
+                                    <button type="button" 
+                                            @click="runSocialTest('youtube')"
+                                            title="Test YouTube Connection"
+                                            class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-rose-700 bg-white hover:bg-rose-50 border border-rose-200 shadow-2xs hover:shadow-xs active:scale-[0.99] transition cursor-pointer">
+                                        <span class="text-sm">▶️</span>
+                                        <span>Test YouTube</span>
+                                    </button>
                                 </div>
                             </div>
 
@@ -1413,5 +1534,7 @@
                 </div>
             </div>
         </div>
+        <!-- Live Diagnostic Modal for Facebook & YouTube -->
+        <x-social-diagnostic-modal />
     </div>
 </x-app-layout>
