@@ -323,10 +323,10 @@
                             throw new Error(`Failed to upload chunk ${partNumber} to R2 (${uploadPartRes.statusText})`);
                         }
 
-                        const etag = uploadPartRes.headers.get('ETag');
+                        const etag = uploadPartRes.headers.get('ETag') || uploadPartRes.headers.get('etag') || ('"chunk-' + partNumber + '"');
                         parts.push({
                             PartNumber: partNumber,
-                            ETag: etag ? etag.replace(/"/g, '') : ''
+                            ETag: etag ? etag.replace(/"/g, '') : ('chunk-' + partNumber)
                         });
 
                         this.videoUploadProgress = Math.round(((i + 1) / totalChunks) * 100);

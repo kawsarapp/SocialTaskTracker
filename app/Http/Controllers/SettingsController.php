@@ -145,6 +145,11 @@ class SettingsController extends Controller
     public function destroyTaskType(TaskType $taskType)
     {
         $this->checkAccess();
+
+        if ($taskType->tasks()->exists()) {
+            return redirect()->route('settings.index')->with('error', 'Cannot delete Task Type "' . $taskType->name . '" because tasks are currently linked to it. Please reassign or delete linked tasks first.');
+        }
+
         $name = $taskType->name;
         $taskType->delete();
         ActivityLog::record('settings_updated', "Deleted Task Type: {$name}");

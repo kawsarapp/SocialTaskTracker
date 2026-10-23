@@ -31,8 +31,6 @@ class SocialPublishTest extends TestCase
         $this->tenant = Tenant::create([
             'name' => 'News Network',
             'slug' => 'news-net',
-            'facebook_page_access_token' => 'mock_fb_token_123',
-            'youtube_api_key' => 'mock_yt_key_123',
         ]);
 
         $this->admin = User::create([
@@ -183,5 +181,56 @@ class SocialPublishTest extends TestCase
                 '*' => ['id', 'title', 'post_type', 'platforms', 'platform_results']
             ]
         ]);
+    }
+
+    public function test_facebook_publishing_does_not_mask_failure_when_token_is_configured()
+    {
+        $this->tenant->update(['facebook_page_access_token' => 'invalid_token']);
+
+        \Illuminate\Support\Facades\Http::fake([
+            'https://graph.facebook.com/*' => \Illuminate\Support\Facades\Http::response([
+                'error' => ['message' => 'Invalid OAuth access token.']
+            ], 400),
+        ]);
+
+        $service = app(\App\Services\SocialPublishService::class);
+        $post = new SocialPost([
+            'tenant_id' => $this->tenant->id,
+            'user_id' => $this->teamLeader->id,
+            'title' => 'Test FB Failure',
+            'post_type' => 'video',
+            'platforms' => ['facebook'],
+        ]);
+
+        $result = $service->publishPost($post);
+
+        $this->assertEquals('failed', $result->status);
+        $this->assertFalse($result->platform_results['facebook']['success']);
+        $this->assertEquals('live_error', $result->platform_results['facebook']['mode']);
+    }
+
+    public function test_youtube_publishing_does_not_mask_failure_when_configured()
+    {
+        $this->tenant->update(['youtube_access_token' => 'valid_token']);
+
+        $mockYt = $this->createMock(\App\Services\YouTubeOAuthService::class);
+        $mockYt->method('uploadVideo')->willThrowException(new \RuntimeException('Quota exceeded'));
+        $this->app->instance(\App\Services\YouTubeOAuthService::class, $mockYt);
+
+        $service = app(\App\Services\SocialPublishService::class);
+        $post = new SocialPost([
+            'tenant_id' => $this->tenant->id,
+            'user_id' => $this->teamLeader->id,
+            'title' => 'Test YT Failure',
+            'post_type' => 'video',
+            'platforms' => ['youtube'],
+            'media_path' => 'https://pub-mock.r2.dev/video.mp4',
+        ]);
+
+        $result = $service->publishPost($post);
+
+        $this->assertEquals('failed', $result->status);
+        $this->assertFalse($result->platform_results['youtube']['success']);
+        $this->assertEquals('live_error', $result->platform_results['youtube']['mode']);
     }
 }

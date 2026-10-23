@@ -668,12 +668,15 @@ class TaskController extends Controller
             ], 400);
         }
 
-        try {
-            $parsedUrl = parse_url($url);
-            $host = $parsedUrl['host'] ?? '';
+        $host = parse_url($url, PHP_URL_HOST);
+        $allowed = ['youtube.com', 'www.youtube.com', 'youtu.be', 'm.youtube.com', 'facebook.com', 'www.facebook.com', 'fb.watch', 'web.facebook.com'];
+        if (!in_array(strtolower((string) $host), $allowed)) {
+            return response()->json(['error' => 'URL must be a valid Facebook or YouTube link.'], 422);
+        }
 
+        try {
             // YouTube Fetching
-            if (str_contains($host, 'youtube.com') || str_contains($host, 'youtu.be')) {
+            if (in_array(strtolower((string) $host), ['youtube.com', 'www.youtube.com', 'youtu.be', 'm.youtube.com'])) {
                 // Use YouTube oEmbed endpoint (free, no API key needed, extremely fast and reliable)
                 $response = Http::get('https://www.youtube.com/oembed', [
                     'url' => $url,
@@ -692,7 +695,7 @@ class TaskController extends Controller
             }
 
             // Facebook Fetching (Meta tag scraping fallback for free title/image extraction)
-            if (str_contains($host, 'facebook.com')) {
+            if (in_array(strtolower((string) $host), ['facebook.com', 'www.facebook.com', 'fb.watch', 'web.facebook.com'])) {
                 // Fetch the public page content with a standard browser User-Agent
                 $response = Http::withHeaders([
                     'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'

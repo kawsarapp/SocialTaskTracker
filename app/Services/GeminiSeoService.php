@@ -55,8 +55,9 @@ PROMPT;
                     ],
                 ],
                 'generationConfig' => [
-                    'temperature'    => 0.7,
-                    'maxOutputTokens' => 2048,
+                    'temperature'      => 0.7,
+                    'maxOutputTokens'  => 2048,
+                    'responseMimeType' => 'application/json',
                 ],
             ]);
 
@@ -75,6 +76,10 @@ PROMPT;
             $text = preg_replace('/^```(?:json)?\s*/i', '', trim($text));
             $text = preg_replace('/\s*```$/', '', $text);
             $text = trim($text);
+
+            if (preg_match('/\{[\s\S]*\}/', $text, $matches)) {
+                $text = $matches[0];
+            }
 
             $parsed = json_decode($text, true);
 
@@ -114,6 +119,9 @@ PROMPT;
                 'contents' => [
                     ['parts' => [['text' => $prompt]]],
                 ],
+                'generationConfig' => [
+                    'responseMimeType' => 'application/json',
+                ],
             ]);
 
             if (!$response->successful()) {
@@ -124,6 +132,11 @@ PROMPT;
             $text = $data['candidates'][0]['content']['parts'][0]['text'] ?? '';
             $text = preg_replace('/^```(?:json)?\s*/i', '', trim($text));
             $text = preg_replace('/\s*```$/', '', $text);
+            $text = trim($text);
+
+            if (preg_match('/\{[\s\S]*\}/', $text, $matches)) {
+                $text = $matches[0];
+            }
 
             $parsed = json_decode(trim($text), true);
             return is_array($parsed) ? $parsed : $this->fallbackThumbnail($title);

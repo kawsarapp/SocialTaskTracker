@@ -184,12 +184,27 @@ class SocialPublishService
                 }
 
                 Log::warning('Facebook API error response: ' . $response->body());
-            } catch (\Exception $e) {
+
+                return [
+                    'success'   => false,
+                    'error'     => 'Facebook publishing failed: ' . ($response->json('error.message') ?? $response->body()),
+                    'page_name' => $page?->name ?? 'Facebook Page',
+                    'mode'      => 'live_error',
+                    'timestamp' => now()->toIso8601String(),
+                ];
+            } catch (\Throwable $e) {
                 Log::error('Facebook Publish Exception: ' . $e->getMessage());
+                return [
+                    'success'   => false,
+                    'error'     => 'Facebook publishing failed: ' . $e->getMessage(),
+                    'page_name' => $page?->name ?? 'Facebook Page',
+                    'mode'      => 'live_error',
+                    'timestamp' => now()->toIso8601String(),
+                ];
             }
         }
 
-        // Realistic Fallback Simulator (allows instant testing/demo even when API keys are pending verification)
+        // Realistic Fallback Simulator (demo/trial mode when access token is not configured)
         $simulatedId = (string) rand(100000000000000, 999999999999999);
         $pageSlug = $page ? Str::slug($page->name) : 'social';
         $url = $isReel
@@ -202,7 +217,7 @@ class SocialPublishService
             'url' => $url,
             'page_name' => $page?->name ?? 'Facebook Page',
             'mode' => 'simulated',
-            'note' => empty($accessToken) ? 'Generated via simulator (configure Facebook Page Access Token in Settings for live Meta API sync).' : 'Live API fallback simulator.',
+            'note' => 'Generated via simulator (configure Facebook Page Access Token in Settings for live Meta API sync).',
             'timestamp' => now()->toIso8601String(),
         ];
     }
@@ -215,8 +230,28 @@ class SocialPublishService
         $channel = $post->youtubeChannel;
         $isShort = in_array(strtolower($post->post_type), ['short', 'reel']);
 
-        // Live YouTube OAuth2 Upload if channel is authenticated and media is in R2
-        if ($tenant && !empty($tenant->youtube_access_token) && !empty($post->media_path) && (str_starts_with($post->media_path, 'http://') || str_starts_with($post->media_path, 'https://'))) {
+        // If youtube_access_token or youtube_api_key is configured, do live upload (do not fall through to simulator)
+        if ($tenant && (!empty($tenant->youtube_access_token) || !empty($tenant->youtube_api_key))) {
+            if (empty($tenant->youtube_access_token)) {
+                return [
+                    'success'      => false,
+                    'error'        => 'YouTube publishing failed: Live publishing requires YouTube OAuth2 channel connection.',
+                    'channel_name' => $channel?->name ?? 'YouTube Channel',
+                    'mode'         => 'live_error',
+                    'timestamp'    => now()->toIso8601String(),
+                ];
+            }
+
+            if (empty($post->media_path) || !(str_starts_with($post->media_path, 'http://') || str_starts_with($post->media_path, 'https://'))) {
+                return [
+                    'success'      => false,
+                    'error'        => 'YouTube publishing failed: Video URL in cloud storage is required for live OAuth2 upload.',
+                    'channel_name' => $channel?->name ?? 'YouTube Channel',
+                    'mode'         => 'live_error',
+                    'timestamp'    => now()->toIso8601String(),
+                ];
+            }
+
             try {
                 $ytService = app(YouTubeOAuthService::class);
                 $accessToken = $tenant->youtube_access_token;
@@ -255,9 +290,17 @@ class SocialPublishService
                 ];
             } catch (\Throwable $e) {
                 Log::error('YouTube OAuth2 Publish error: ' . $e->getMessage());
+                return [
+                    'success'      => false,
+                    'error'        => 'YouTube publishing failed: ' . $e->getMessage(),
+                    'channel_name' => $channel?->name ?? 'YouTube Channel',
+                    'mode'         => 'live_error',
+                    'timestamp'    => now()->toIso8601String(),
+                ];
             }
         }
 
+        // The simulator should ONLY run when neither youtube_access_token nor youtube_api_key is configured (demo/trial mode)
         $simulatedVideoId = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_'), 0, 11);
 
         $url = $isShort
@@ -269,8 +312,8 @@ class SocialPublishService
             'video_id'     => $simulatedVideoId,
             'url'          => $url,
             'channel_name' => $channel?->name ?? 'YouTube Channel',
-            'mode'         => !empty($tenant?->youtube_api_key) ? 'verified' : 'simulated',
-            'note'         => empty($tenant?->youtube_access_token) ? 'Published via simulation (connect YouTube OAuth2 in Settings for direct channel uploads).' : 'OAuth2 upload fallback.',
+            'mode'         => 'simulated',
+            'note'         => 'Published via simulation (demo/trial mode).',
             'timestamp'    => now()->toIso8601String(),
         ];
     }

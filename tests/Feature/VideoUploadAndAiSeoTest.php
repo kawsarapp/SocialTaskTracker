@@ -246,4 +246,91 @@ class VideoUploadAndAiSeoTest extends TestCase
         $response->assertRedirect();
         $this->assertStringContainsString('accounts.google.com/o/oauth2/v2/auth', $response->headers->get('Location'));
     }
+
+    public function test_youtube_oauth_callback_aborts_on_invalid_hmac_signature(): void
+    {
+        $tamperedState = base64_encode(json_encode([
+            'tenant_id' => $this->tenant->id,
+            'sig'       => 'forged_or_invalid_signature',
+        ]));
+
+        $response = $this->actingAs($this->adminUser)->get(route('youtube.oauth.callback', [
+            'code'  => 'google_auth_code_123',
+            'state' => $tamperedState,
+        ]));
+
+        $response->assertStatus(403);
+    }
+
+    public function test_youtube_oauth_callback_aborts_on_cross_tenant_access(): void
+    {
+        $otherTenant = Tenant::create(['name' => 'Other Tenant', 'slug' => 'other-tenant']);
+        $validSigForOtherTenant = hash_hmac('sha256', (string) $otherTenant->id, config('app.key'));
+        $state = base64_encode(json_encode([
+            'tenant_id' => $otherTenant->id,
+            'sig'       => $validSigForOtherTenant,
+        ]));
+
+        // Admin of first tenant attempts to hijack other tenant
+        $response = $this->actingAs($this->adminUser)->get(route('youtube.oauth.callback', [
+            'code'  => 'google_auth_code_123',
+            'state' => $state,
+        ]));
+
+        $response->assertStatus(403);
+    }
+
+    public function test_fetch_metadata_rejects_ssrf_disallowed_domains(): void
+    {
+        $response = $this->actingAs($this->adminUser)->getJson(route('tasks.fetch-metadata', [
+            'url' => 'http://169.254.169.254/latest/meta-data/',
+        ]));
+
+        $response->assertStatus(422)
+            ->assertJson(['error' => 'URL must be a valid Facebook or YouTube link.']);
+    }
+
+    public function test_attendance_leave_rejects_cross_tenant_user_idor(): void
+    {
+        $otherTenant = Tenant::create(['name' => 'Foreign Corp', 'slug' => 'foreign-corp']);
+        $foreignUser = User::create([
+            'tenant_id' => $otherTenant->id,
+            'name'      => 'Foreign Staff',
+            'email'     => 'staff@foreign.org',
+            'password'  => bcrypt('secret'),
+            'role'      => 'staff',
+        ]);
+
+        $response = $this->actingAs($this->adminUser)->post(route('settings.attendance.leave'), [
+            'user_id' => $foreignUser->id,
+            'date'    => now()->toDateString(),
+            'remarks' => 'Illness',
+        ]);
+
+        $response->assertStatus(403);
+    }
+
+    public function test_destroy_task_type_aborts_when_tasks_are_linked(): void
+    {
+        $taskType = \App\Models\TaskType::create([
+            'tenant_id' => $this->tenant->id,
+            'name'      => 'Protected Category',
+            'color'     => '#ff0000',
+        ]);
+
+        \App\Models\Task::create([
+            'tenant_id'    => $this->tenant->id,
+            'title'        => 'Linked Task Item',
+            'task_type_id' => $taskType->id,
+            'entry_by'     => $this->adminUser->id,
+            'on_air_date'  => now()->toDateString(),
+            'on_air_time'  => '12:00',
+        ]);
+
+        $response = $this->actingAs($this->adminUser)->delete(route('settings.task-types.destroy', $taskType->id));
+
+        $response->assertRedirect(route('settings.index'));
+        $response->assertSessionHas('error');
+        $this->assertDatabaseHas('task_types', ['id' => $taskType->id]);
+    }
 }

@@ -91,6 +91,9 @@ class AttendanceController extends Controller
         ]);
 
         $staffUser = User::find($request->user_id);
+        if (!$staffUser || ($staffUser->tenant_id !== $user->effectiveTenantId() && !$user->isSuperAdmin())) {
+            abort(403, 'Unauthorized access to user from another tenant.');
+        }
 
         // Find or create leave record for the date
         Attendance::updateOrCreate(

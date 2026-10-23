@@ -38,7 +38,10 @@ class YouTubeOAuthService
             'scope'         => implode(' ', $this->scopes),
             'access_type'   => 'offline',
             'prompt'        => 'consent',
-            'state'         => base64_encode(json_encode(['tenant_id' => $tenantId])),
+            'state'         => base64_encode(json_encode([
+                'tenant_id' => $tenantId,
+                'sig'       => hash_hmac('sha256', (string) $tenantId, config('app.key')),
+            ])),
         ]);
 
         return 'https://accounts.google.com/o/oauth2/v2/auth?' . $params;
@@ -112,7 +115,13 @@ class YouTubeOAuthService
 
         // Step 1: Download video binary from R2
         Log::info('YouTube upload: downloading video from R2', ['url' => $r2Url]);
-        $videoBody = Http::timeout(300)->get($r2Url)->body();
+        $response = Http::timeout(300)->get($r2Url);
+
+        if (!$response->successful()) {
+            throw new \RuntimeException("Failed to download video from R2 (HTTP {$response->status()}): {$response->body()}");
+        }
+
+        $videoBody = $response->body();
 
         if (empty($videoBody)) {
             throw new \RuntimeException('Failed to download video from R2 URL: ' . $r2Url);

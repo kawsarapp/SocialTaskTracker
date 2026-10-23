@@ -161,6 +161,6 @@ class CloudflareR2Service
      */
     public function getPublicUrl(string $key): string
     {
-        return rtrim(config('r2.public_url'), '/') . '/' . ltrim($key, '/');
+        return rtrim((string) config('r2.public_url', ''), '/') . '/' . ltrim($key, '/');
     }
 }

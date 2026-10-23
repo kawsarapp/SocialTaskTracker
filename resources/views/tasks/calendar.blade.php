@@ -181,7 +181,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             var calendarEl = document.getElementById('calendar');
-            var eventsData = {!! $eventsJson !!};
+            var eventsData = @json(is_string($eventsJson) ? json_decode($eventsJson, true) : $eventsJson);
 
             var calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',

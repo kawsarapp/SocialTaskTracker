@@ -49,7 +49,7 @@ class Task extends Model
         // 1. Task Created Hook
         static::created(function ($task) {
             $userId = \Illuminate\Support\Facades\Auth::id();
-            $tenantId = $task->tenant_id ?? (\Illuminate\Support\Facades\Auth::user()->tenant_id ?? null);
+            $tenantId = $task->tenant_id ?? (\Illuminate\Support\Facades\Auth::user()?->tenant_id ?? null);
             if ($tenantId) {
                 \App\Models\ActivityLog::create([
                     'tenant_id' => $tenantId,
@@ -65,7 +65,7 @@ class Task extends Model
         // 2. Task Updating Hook (to catch changed attributes before save)
         static::updating(function ($task) {
             $userId = \Illuminate\Support\Facades\Auth::id();
-            $tenantId = $task->tenant_id ?? (\Illuminate\Support\Facades\Auth::user()->tenant_id ?? null);
+            $tenantId = $task->tenant_id ?? (\Illuminate\Support\Facades\Auth::user()?->tenant_id ?? null);
 
             if ($tenantId) {
                 $changes = [];
@@ -95,7 +95,7 @@ class Task extends Model
         // 3. Task Deleted Hook
         static::deleted(function ($task) {
             $userId = \Illuminate\Support\Facades\Auth::id();
-            $tenantId = $task->tenant_id ?? (\Illuminate\Support\Facades\Auth::user()->tenant_id ?? null);
+            $tenantId = $task->tenant_id ?? (\Illuminate\Support\Facades\Auth::user()?->tenant_id ?? null);
 
             if ($tenantId) {
                 \App\Models\ActivityLog::create([

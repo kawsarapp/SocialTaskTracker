@@ -376,38 +376,44 @@ class VideoUploadController extends Controller
                 ->with('error', 'No authorization code received from Google.');
         }
 
+        // Verify state parameter and HMAC signature
+        $state = $request->input('state');
+        if (!$state) {
+            abort(403, 'Missing state parameter.');
+        }
+
+        $decoded = json_decode(base64_decode($state), true);
+        if (!is_array($decoded) || !isset($decoded['tenant_id'], $decoded['sig'])) {
+            abort(403, 'Invalid state payload.');
+        }
+
+        $tenantId = (int) $decoded['tenant_id'];
+        $expectedSig = hash_hmac('sha256', (string) $tenantId, config('app.key'));
+        if (!hash_equals($expectedSig, (string) $decoded['sig'])) {
+            abort(403, 'Invalid state signature.');
+        }
+
+        $user = Auth::user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->effectiveTenantId() === (int) $tenantId), 403, 'Unauthorized tenant access.');
+
         try {
             $tokens = $ytService->exchangeCodeForTokens($code);
 
-            // Resolve tenant from state or user session
-            $state = $request->input('state');
-            $tenantId = null;
-            if ($state) {
-                $decoded = json_decode(base64_decode($state), true);
-                $tenantId = $decoded['tenant_id'] ?? null;
+            $tenant = Tenant::findOrFail($tenantId);
+
+            $updateData = [
+                'youtube_access_token'     => $tokens['access_token'],
+                'youtube_token_expires_at' => now()->addSeconds($tokens['expires_in'] ?? 3600),
+            ];
+            if (!empty($tokens['refresh_token'])) {
+                $updateData['youtube_refresh_token'] = $tokens['refresh_token'];
             }
+            $tenant->update($updateData);
 
-            $user = Auth::user();
-            $tenant = $tenantId ? Tenant::find($tenantId) : $user?->effectiveTenant();
-
-            if ($tenant) {
-                $updateData = [
-                    'youtube_access_token'     => $tokens['access_token'],
-                    'youtube_token_expires_at' => now()->addSeconds($tokens['expires_in'] ?? 3600),
-                ];
-                if (!empty($tokens['refresh_token'])) {
-                    $updateData['youtube_refresh_token'] = $tokens['refresh_token'];
-                }
-                $tenant->update($updateData);
-
-                ActivityLog::record('settings_updated', 'Connected YouTube Channel with OAuth2 authorization');
-
-                return redirect()->route('settings.index')
-                    ->with('success', '🎉 YouTube Channel successfully connected via OAuth2! You can now publish videos directly.');
-            }
+            ActivityLog::record('settings_updated', 'Connected YouTube Channel with OAuth2 authorization');
 
             return redirect()->route('settings.index')
-                ->with('error', 'Unable to determine tenant for YouTube authorization.');
+                ->with('success', '🎉 YouTube Channel successfully connected via OAuth2! You can now publish videos directly.');
         } catch (\Throwable $e) {
             Log::error('YouTube OAuth callback exception', ['error' => $e->getMessage()]);
             return redirect()->route('settings.index')
