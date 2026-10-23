@@ -27,6 +27,9 @@ class Tenant extends Model
         'google_sheet_auto_sync',
         'google_sheet_last_synced_at',
         'google_sheet_column_mapping',
+        'youtube_access_token',
+        'youtube_refresh_token',
+        'youtube_token_expires_at',
     ];
 
     protected $casts = [
@@ -37,6 +40,7 @@ class Tenant extends Model
         'google_sheet_auto_sync' => 'boolean',
         'google_sheet_last_synced_at' => 'datetime',
         'google_sheet_column_mapping' => 'array',
+        'youtube_token_expires_at' => 'datetime',
     ];
 
     protected static function booted()

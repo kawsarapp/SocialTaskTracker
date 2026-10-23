@@ -212,6 +212,293 @@
                 }
                 this.showPublishModal = true;
             },
+            // Cloudflare R2 Chunked Video Upload & AI SEO
+            videoFile: null,
+            videoFileName: '',
+            videoFileSize: '',
+            videoUploadId: null,
+            videoR2Url: '',
+            videoR2Key: '',
+            isUploadingVideo: false,
+            videoUploadProgress: 0,
+            videoUploadError: '',
+            videoUploadSuccess: false,
+            thumbnailFile: null,
+            thumbnailUrl: '',
+            isUploadingThumb: false,
+            isGeneratingAiSeo: false,
+            aiSeoResult: null,
+            aiCopiedTag: '',
+            aiThumbnailSuggestions: null,
+            isLoadingThumbText: false,
+            selectVideoFile(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                this.setVideoFile(file);
+            },
+            handleVideoDrop(event) {
+                const file = event.dataTransfer?.files[0];
+                if (!file) return;
+                this.setVideoFile(file);
+            },
+            setVideoFile(file) {
+                this.videoFile = file;
+                this.videoFileName = file.name;
+                this.videoFileSize = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+                this.videoUploadProgress = 0;
+                this.videoUploadSuccess = false;
+                this.videoUploadError = '';
+                if (!this.publishTitle) {
+                    this.publishTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+                }
+            },
+            async startR2ChunkedUpload() {
+                if (!this.videoFile) return;
+                this.isUploadingVideo = true;
+                this.videoUploadProgress = 0;
+                this.videoUploadError = '';
+                this.videoUploadSuccess = false;
+
+                const file = this.videoFile;
+                const chunkSize = 5 * 1024 * 1024;
+                const totalChunks = Math.ceil(file.size / chunkSize);
+                const csrfMeta = document.querySelector('meta[name=csrf-token]');
+                const csrfToken = csrfMeta ? csrfMeta.content : '';
+
+                try {
+                    const initRes = await fetch('{{ route('video-uploads.initiate') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: JSON.stringify({
+                            filename: file.name,
+                            content_type: file.type || 'video/mp4',
+                            file_size: file.size,
+                            task_id: this.selectedTaskIdForPublish || null
+                        })
+                    });
+                    const initData = await initRes.json();
+                    if (!initRes.ok || !initData.success) {
+                        throw new Error(initData.error || 'Failed to initiate R2 upload.');
+                    }
+
+                    const uploadId = initData.upload_id;
+                    const key = initData.key;
+                    this.videoUploadId = initData.video_upload_id;
+                    this.videoR2Key = key;
+
+                    const parts = [];
+                    for (let i = 0; i < totalChunks; i++) {
+                        const partNumber = i + 1;
+                        const start = i * chunkSize;
+                        const end = Math.min(start + chunkSize, file.size);
+                        const chunk = file.slice(start, end);
+
+                        const partUrlRes = await fetch('{{ route('video-uploads.part-url') }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken
+                            },
+                            body: JSON.stringify({
+                                key: key,
+                                upload_id: uploadId,
+                                part_number: partNumber
+                            })
+                        });
+                        const partUrlData = await partUrlRes.json();
+                        if (!partUrlRes.ok || !partUrlData.success) {
+                            throw new Error(partUrlData.error || `Failed to get part URL for chunk ${partNumber}`);
+                        }
+
+                        const uploadPartRes = await fetch(partUrlData.url, {
+                            method: 'PUT',
+                            body: chunk
+                        });
+                        if (!uploadPartRes.ok) {
+                            throw new Error(`Failed to upload chunk ${partNumber} to R2 (${uploadPartRes.statusText})`);
+                        }
+
+                        const etag = uploadPartRes.headers.get('ETag');
+                        parts.push({
+                            PartNumber: partNumber,
+                            ETag: etag ? etag.replace(/"/g, '') : ''
+                        });
+
+                        this.videoUploadProgress = Math.round(((i + 1) / totalChunks) * 100);
+                    }
+
+                    const completeRes = await fetch('{{ route('video-uploads.complete') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: JSON.stringify({
+                            key: key,
+                            upload_id: uploadId,
+                            parts: parts,
+                            video_upload_id: this.videoUploadId,
+                            task_id: this.selectedTaskIdForPublish || null
+                        })
+                    });
+                    const completeData = await completeRes.json();
+                    if (!completeRes.ok || !completeData.success) {
+                        throw new Error(completeData.error || 'Failed to complete R2 upload.');
+                    }
+
+                    this.videoR2Url = completeData.r2_url;
+                    this.videoUploadSuccess = true;
+                    if (completeData.seo) {
+                        this.aiSeoResult = completeData.seo;
+                    } else if (this.publishTitle) {
+                        this.generateAiSeo();
+                    }
+                } catch (err) {
+                    this.videoUploadError = err.message || 'Error uploading video to Cloudflare R2.';
+                } finally {
+                    this.isUploadingVideo = false;
+                }
+            },
+            async generateAiSeo() {
+                const titleToUse = this.publishTitle || this.videoFileName;
+                if (!titleToUse) {
+                    alert('Please enter a video title first.');
+                    return;
+                }
+                this.isGeneratingAiSeo = true;
+                const csrfMeta = document.querySelector('meta[name=csrf-token]');
+                const csrfToken = csrfMeta ? csrfMeta.content : '';
+
+                try {
+                    const descInput = document.querySelector('textarea[name="content"]');
+                    const res = await fetch('{{ route('video-uploads.ai-seo') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: JSON.stringify({
+                            title: titleToUse,
+                            description: descInput ? descInput.value : '',
+                            video_upload_id: this.videoUploadId || null
+                        })
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        this.aiSeoResult = data.seo;
+                    } else {
+                        alert(data.error || 'AI SEO generation failed.');
+                    }
+                } catch (e) {
+                    console.error('AI SEO error', e);
+                } finally {
+                    this.isGeneratingAiSeo = false;
+                }
+            },
+            applyAiTitle() {
+                if (this.aiSeoResult?.seo_title) {
+                    this.publishTitle = this.aiSeoResult.seo_title;
+                }
+            },
+            applyAiDescription() {
+                if (this.aiSeoResult?.description) {
+                    const descInput = document.querySelector('textarea[name="content"]');
+                    if (descInput) {
+                        descInput.value = this.aiSeoResult.description;
+                    }
+                }
+            },
+            appendHashtagsToDesc() {
+                if (this.aiSeoResult?.hashtags && this.aiSeoResult.hashtags.length) {
+                    const descInput = document.querySelector('textarea[name="content"]');
+                    if (descInput) {
+                        const tagsStr = '\n\n' + this.aiSeoResult.hashtags.join(' ');
+                        descInput.value = (descInput.value || '') + tagsStr;
+                    }
+                }
+            },
+            copyHashtags() {
+                if (this.aiSeoResult?.hashtags) {
+                    navigator.clipboard.writeText(this.aiSeoResult.hashtags.join(' '));
+                    this.aiCopiedTag = 'hashtags';
+                    setTimeout(() => { this.aiCopiedTag = ''; }, 2000);
+                }
+            },
+            copyTags() {
+                if (this.aiSeoResult?.tags) {
+                    navigator.clipboard.writeText(this.aiSeoResult.tags.join(', '));
+                    this.aiCopiedTag = 'tags';
+                    setTimeout(() => { this.aiCopiedTag = ''; }, 2000);
+                }
+            },
+            async uploadThumbnailToR2(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                if (!this.videoUploadId) {
+                    alert('Please select and start uploading the video first so the thumbnail can be linked.');
+                    return;
+                }
+                this.isUploadingThumb = true;
+                const csrfMeta = document.querySelector('meta[name=csrf-token]');
+                const csrfToken = csrfMeta ? csrfMeta.content : '';
+                const formData = new FormData();
+                formData.append('thumbnail', file);
+                formData.append('video_upload_id', this.videoUploadId);
+
+                try {
+                    const res = await fetch('{{ route('video-uploads.thumbnail') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: formData
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        this.thumbnailUrl = data.thumbnail_url;
+                    } else {
+                        alert(data.error || 'Thumbnail upload failed.');
+                    }
+                } catch (e) {
+                    console.error('Thumbnail upload error', e);
+                } finally {
+                    this.isUploadingThumb = false;
+                }
+            },
+            async fetchThumbnailTextSuggestions() {
+                const titleToUse = this.publishTitle || this.videoFileName;
+                if (!titleToUse) return;
+                this.isLoadingThumbText = true;
+                const csrfMeta = document.querySelector('meta[name=csrf-token]');
+                const csrfToken = csrfMeta ? csrfMeta.content : '';
+                try {
+                    const res = await fetch('{{ route('video-uploads.thumbnail-text') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: JSON.stringify({ title: titleToUse })
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        this.aiThumbnailSuggestions = data.suggestions;
+                    }
+                } catch (e) {
+                    console.error('Thumbnail text error', e);
+                } finally {
+                    this.isLoadingThumbText = false;
+                }
+            },
             openTaskModal(id) {
                 if (window.__tasksMap && window.__tasksMap[id]) {
                     this.activeTask = window.__tasksMap[id];
@@ -1058,13 +1345,110 @@
                                 </div>
                             </div>
 
-                            <!-- Post Title / Headline -->
+                            <!-- Post Title / Headline with AI SEO Button -->
                             <div>
-                                <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                                    Post Title / Headline <span class="text-rose-500">*</span>
-                                </label>
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                        Post Title / Headline <span class="text-rose-500">*</span>
+                                    </label>
+                                    <button type="button" 
+                                            @click="generateAiSeo()"
+                                            :disabled="isGeneratingAiSeo || (!publishTitle && !videoFileName)"
+                                            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-95 shadow-sm transition disabled:opacity-50 cursor-pointer">
+                                        <template x-if="!isGeneratingAiSeo">
+                                            <span class="flex items-center gap-1">
+                                                <span>✨</span>
+                                                <span>Generate AI SEO (Gemini)</span>
+                                            </span>
+                                        </template>
+                                        <template x-if="isGeneratingAiSeo">
+                                            <span class="flex items-center gap-1">
+                                                <svg class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
+                                                <span>Generating SEO...</span>
+                                            </span>
+                                        </template>
+                                    </button>
+                                </div>
                                 <input type="text" name="title" x-model="publishTitle" required placeholder="e.g. Breaking: Major Tech Milestone Announced Today" 
                                        class="w-full border-gray-200 rounded-xl text-xs sm:text-sm focus:border-indigo-500 focus:ring-indigo-500 placeholder-gray-400 py-2.5">
+                            </div>
+
+                            <!-- Gemini AI SEO Suggestion Panel -->
+                            <div x-show="aiSeoResult" x-cloak class="p-4 bg-gradient-to-br from-purple-50/70 via-indigo-50/50 to-pink-50/40 border border-purple-200/80 rounded-2xl space-y-3 shadow-xs">
+                                <div class="flex items-center justify-between border-b border-purple-200/60 pb-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-base">✨</span>
+                                        <span class="text-xs font-extrabold text-purple-950 uppercase tracking-wide">Google Gemini AI SEO Engine</span>
+                                    </div>
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-200 text-purple-900">Viral Optimized</span>
+                                </div>
+
+                                <!-- AI Suggested Title -->
+                                <template x-if="aiSeoResult?.seo_title">
+                                    <div class="bg-white/80 p-2.5 rounded-xl border border-purple-100 flex items-center justify-between gap-2">
+                                        <div class="min-w-0">
+                                            <span class="text-[10px] font-bold uppercase text-purple-600 block">Viral Title Suggestion</span>
+                                            <p class="text-xs font-bold text-slate-800 truncate" x-text="aiSeoResult.seo_title"></p>
+                                        </div>
+                                        <button type="button" @click="applyAiTitle()" class="shrink-0 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-lg transition cursor-pointer">
+                                            ⚡ Apply Title
+                                        </button>
+                                    </div>
+                                </template>
+
+                                <!-- AI Suggested Description -->
+                                <template x-if="aiSeoResult?.description">
+                                    <div class="bg-white/80 p-2.5 rounded-xl border border-purple-100 space-y-1.5">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-[10px] font-bold uppercase text-purple-600">SEO Description Suggestion</span>
+                                            <button type="button" @click="applyAiDescription()" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-lg transition cursor-pointer">
+                                                ⚡ Apply Description
+                                            </button>
+                                        </div>
+                                        <p class="text-[11px] text-slate-600 line-clamp-2" x-text="aiSeoResult.description"></p>
+                                    </div>
+                                </template>
+
+                                <!-- AI Hashtags (15) -->
+                                <template x-if="aiSeoResult?.hashtags && aiSeoResult.hashtags.length">
+                                    <div class="bg-white/80 p-2.5 rounded-xl border border-purple-100 space-y-1.5">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-[10px] font-bold uppercase text-purple-600 flex items-center gap-1">
+                                                <span>#️⃣</span>
+                                                <span>Viral Hashtags</span>
+                                            </span>
+                                            <div class="flex items-center gap-2">
+                                                <button type="button" @click="appendHashtagsToDesc()" class="text-[11px] font-bold text-purple-700 hover:underline cursor-pointer">
+                                                    + Add to Caption
+                                                </button>
+                                                <button type="button" @click="copyHashtags()" class="text-[11px] font-bold text-indigo-600 hover:underline cursor-pointer" x-text="aiCopiedTag === 'hashtags' ? '✅ Copied!' : '📋 Copy All'"></button>
+                                            </div>
+                                        </div>
+                                        <div class="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+                                            <template x-for="tag in aiSeoResult.hashtags" :key="tag">
+                                                <span class="text-[10px] font-mono font-medium px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 border border-purple-200/60" x-text="tag"></span>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <!-- AI Video Tags (25) -->
+                                <template x-if="aiSeoResult?.tags && aiSeoResult.tags.length">
+                                    <div class="bg-white/80 p-2.5 rounded-xl border border-purple-100 space-y-1.5">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-[10px] font-bold uppercase text-purple-600 flex items-center gap-1">
+                                                <span>🏷️</span>
+                                                <span>YouTube / Social Tags (25)</span>
+                                            </span>
+                                            <button type="button" @click="copyTags()" class="text-[11px] font-bold text-indigo-600 hover:underline cursor-pointer" x-text="aiCopiedTag === 'tags' ? '✅ Copied!' : '📋 Copy Tags'"></button>
+                                        </div>
+                                        <div class="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
+                                            <template x-for="tag in aiSeoResult.tags" :key="tag">
+                                                <span class="text-[10px] font-medium px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 border border-indigo-100" x-text="tag"></span>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
                             </div>
 
                             <!-- Caption / Description -->
@@ -1170,23 +1554,111 @@
                                 </div>
                             </div>
 
-                            <!-- Media Uploads: Video & Thumbnail -->
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                                        Video / Media File
-                                    </label>
-                                    <input type="file" name="media" accept="video/*,image/*" 
-                                           class="w-full border border-gray-200 rounded-lg text-xs text-gray-600 file:mr-2 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer">
-                                    <span class="block text-[10px] text-gray-400 mt-1">MP4, MOV, WebM or Image (Max 100MB)</span>
+                            <!-- Cloudflare R2 Chunked Video Uploader & Thumbnail Section -->
+                            <div class="space-y-3 p-4 bg-slate-50/80 rounded-2xl border border-slate-200">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-base">⚡</span>
+                                        <span class="text-xs font-extrabold uppercase tracking-wider text-slate-800">Cloudflare R2 Chunked Video Upload</span>
+                                    </div>
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">R2 CDN Powered</span>
                                 </div>
+
+                                <!-- Hidden fields for R2 uploaded files -->
+                                <input type="hidden" name="r2_video_url" :value="videoR2Url">
+                                <input type="hidden" name="video_upload_id" :value="videoUploadId">
+                                <input type="hidden" name="r2_thumbnail_url" :value="thumbnailUrl">
+
+                                <!-- Drag & Drop Video Zone -->
                                 <div>
-                                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                                        Custom Thumbnail
-                                    </label>
-                                    <input type="file" name="thumbnail" accept="image/*" 
-                                           class="w-full border border-gray-200 rounded-lg text-xs text-gray-600 file:mr-2 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer">
-                                    <span class="block text-[10px] text-gray-400 mt-1">JPG, PNG, WebP cover (Optional, Max 10MB)</span>
+                                    <input type="file" accept="video/*" class="hidden" x-ref="r2VideoInput" @change="selectVideoFile($event)">
+                                    <div @click="$refs.r2VideoInput.click()" 
+                                         @dragover.prevent 
+                                         @drop.prevent="handleVideoDrop($event)" 
+                                         class="border-2 border-dashed border-indigo-200 hover:border-indigo-400 bg-white hover:bg-indigo-50/30 rounded-xl p-4 text-center cursor-pointer transition">
+                                        <template x-if="!videoFile">
+                                            <div class="space-y-1">
+                                                <div class="text-2xl">📹</div>
+                                                <p class="text-xs font-bold text-slate-800">Drag &amp; drop video here, or <span class="text-indigo-600 underline">click to browse</span></p>
+                                                <p class="text-[10px] text-slate-400">MP4, MOV, WebM — Cloudflare R2 chunked upload (up to 5GB)</p>
+                                            </div>
+                                        </template>
+                                        <template x-if="videoFile">
+                                            <div class="flex items-center justify-between gap-3 text-left">
+                                                <div class="flex items-center gap-2.5 min-w-0">
+                                                    <span class="text-xl shrink-0">🎬</span>
+                                                    <div class="min-w-0">
+                                                        <p class="text-xs font-bold text-slate-900 truncate" x-text="videoFileName"></p>
+                                                        <span class="text-[10px] text-slate-500 font-mono" x-text="videoFileSize"></span>
+                                                    </div>
+                                                </div>
+                                                <div class="flex items-center gap-2 shrink-0">
+                                                    <button type="button" @click.stop="startR2ChunkedUpload()" :disabled="isUploadingVideo || videoUploadSuccess" class="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition cursor-pointer">
+                                                        <span x-text="videoUploadSuccess ? '✅ Uploaded' : (isUploadingVideo ? 'Uploading...' : '⚡ Upload to R2')"></span>
+                                                    </button>
+                                                    <button type="button" @click.stop="videoFile = null; videoR2Url = ''; videoUploadSuccess = false" class="text-slate-400 hover:text-rose-600 text-sm font-bold">&times;</button>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+
+                                    <!-- Upload Progress Bar -->
+                                    <div x-show="isUploadingVideo" class="mt-2.5 space-y-1">
+                                        <div class="flex justify-between text-[11px] font-bold text-indigo-900">
+                                            <span>Uploading chunks to Cloudflare R2...</span>
+                                            <span x-text="videoUploadProgress + '%'"></span>
+                                        </div>
+                                        <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                                            <div class="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full transition-all duration-150" :style="'width: ' + videoUploadProgress + '%'"></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Upload Success Badge -->
+                                    <div x-show="videoUploadSuccess && videoR2Url" class="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between text-xs text-emerald-900">
+                                        <span class="flex items-center gap-1.5 font-bold">
+                                            <span>✅</span>
+                                            <span>Video Stored in Cloudflare R2 CDN!</span>
+                                        </span>
+                                        <a :href="videoR2Url" target="_blank" class="text-indigo-600 hover:underline font-bold text-[11px]">Preview CDN &rarr;</a>
+                                    </div>
+
+                                    <!-- Upload Error Alert -->
+                                    <div x-show="videoUploadError" class="mt-2 p-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800" x-text="videoUploadError"></div>
+                                </div>
+
+                                <!-- Thumbnail & AI Suggestion -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/80">
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                            Custom Thumbnail
+                                        </label>
+                                        <input type="file" accept="image/*" @change="uploadThumbnailToR2($event)" class="w-full border border-gray-200 rounded-lg text-xs text-gray-600 file:mr-2 file:py-1.5 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer">
+                                        <div x-show="thumbnailUrl" class="mt-1 text-[10px] text-emerald-700 font-bold">✅ Thumbnail saved to R2</div>
+                                    </div>
+                                    <div class="flex flex-col justify-end">
+                                        <button type="button" @click="fetchThumbnailTextSuggestions()" :disabled="isLoadingThumbText || (!publishTitle && !videoFileName)" class="w-full py-2 px-3 rounded-lg text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition cursor-pointer flex items-center justify-center gap-1.5">
+                                            <span>💡</span>
+                                            <span x-text="isLoadingThumbText ? 'Thinking...' : 'AI Thumbnail Text Ideas'"></span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- AI Thumbnail Text Suggestions Popup/Card -->
+                                <div x-show="aiThumbnailSuggestions" x-cloak class="p-3 bg-amber-50/80 border border-amber-200 rounded-xl space-y-1.5 text-xs text-amber-950">
+                                    <div class="flex items-center justify-between font-bold">
+                                        <span>💡 Suggested Thumbnail Text:</span>
+                                        <button type="button" @click="aiThumbnailSuggestions = null" class="text-amber-600 hover:text-amber-900">&times;</button>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2 text-[11px]">
+                                        <div class="bg-white p-2 rounded border border-amber-100">
+                                            <span class="text-[10px] uppercase font-bold text-gray-400 block">Main Text</span>
+                                            <span class="font-extrabold text-slate-800" x-text="aiThumbnailSuggestions?.main_text"></span>
+                                        </div>
+                                        <div class="bg-white p-2 rounded border border-amber-100">
+                                            <span class="text-[10px] uppercase font-bold text-gray-400 block">Sub Text</span>
+                                            <span class="font-bold text-slate-700" x-text="aiThumbnailSuggestions?.sub_text"></span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 

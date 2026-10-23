@@ -9,6 +9,7 @@ use App\Http\Controllers\CommentController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\SocialPublishController;
 use App\Http\Controllers\GoogleSheetController;
+use App\Http\Controllers\VideoUploadController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -80,6 +81,20 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/settings/api-keys/test-youtube', [SettingsController::class, 'testYoutubeConnection'])->name('settings.api-keys.test-youtube');
     Route::post('/settings/google-sheets/settings', [GoogleSheetController::class, 'updateSettings'])->name('settings.google-sheets.update');
     Route::post('/settings/google-sheets/sync', [GoogleSheetController::class, 'sync'])->name('settings.google-sheets.sync');
+
+    // Cloudflare R2 Chunked Video Uploads & AI SEO
+    Route::post('/video-uploads/initiate', [VideoUploadController::class, 'initiateMultipartUpload'])->name('video-uploads.initiate');
+    Route::post('/video-uploads/part-url', [VideoUploadController::class, 'getPartUploadUrl'])->name('video-uploads.part-url');
+    Route::post('/video-uploads/complete', [VideoUploadController::class, 'completeUpload'])->name('video-uploads.complete');
+    Route::post('/video-uploads/thumbnail', [VideoUploadController::class, 'uploadThumbnail'])->name('video-uploads.thumbnail');
+    Route::post('/video-uploads/ai-seo', [VideoUploadController::class, 'generateAiSeo'])->name('video-uploads.ai-seo');
+    Route::post('/video-uploads/thumbnail-text', [VideoUploadController::class, 'suggestThumbnailText'])->name('video-uploads.thumbnail-text');
+    Route::post('/video-uploads/publish-youtube', [VideoUploadController::class, 'publishToYoutube'])->name('video-uploads.publish-youtube');
+    Route::get('/video-uploads', [VideoUploadController::class, 'index'])->name('video-uploads.index');
+
+    // YouTube OAuth2 Direct Channel Integration
+    Route::get('/youtube/oauth', [VideoUploadController::class, 'youtubeOAuthRedirect'])->name('youtube.oauth');
+    Route::get('/youtube/oauth/callback', [VideoUploadController::class, 'youtubeOAuthCallback'])->name('youtube.oauth.callback');
 
     // Super Admin Portal
     Route::get('/superadmin', [SuperAdminController::class, 'index'])->name('superadmin.index');

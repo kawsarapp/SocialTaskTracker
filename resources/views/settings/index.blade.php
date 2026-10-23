@@ -1505,6 +1505,56 @@
                             </div>
                         </div>
                         
+                        <!-- Cloudflare R2, Gemini AI & YouTube OAuth2 Status Bar -->
+                        <div class="mb-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <!-- Cloudflare R2 CDN -->
+                            <div class="p-3.5 bg-gradient-to-br from-amber-50 to-orange-50/50 border border-amber-200 rounded-xl text-xs">
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <span class="font-bold text-amber-900 flex items-center gap-1.5">
+                                        <span>⚡</span>
+                                        <span>Cloudflare R2 CDN</span>
+                                    </span>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900">Active</span>
+                                </div>
+                                <p class="text-[11px] text-amber-800">Chunked fast video upload, bucket: <code>{{ config('r2.bucket') }}</code></p>
+                            </div>
+
+                            <!-- Gemini AI Engine -->
+                            <div class="p-3.5 bg-gradient-to-br from-indigo-50 to-purple-50/50 border border-indigo-200 rounded-xl text-xs">
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <span class="font-bold text-indigo-900 flex items-center gap-1.5">
+                                        <span>✨</span>
+                                        <span>Google Gemini AI</span>
+                                    </span>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-200 text-indigo-900">AI SEO Ready</span>
+                                </div>
+                                <p class="text-[11px] text-indigo-800">Model: <code>{{ config('gemini.model') }}</code> (Viral titles, tags, hashtags)</p>
+                            </div>
+
+                            <!-- YouTube OAuth2 Status -->
+                            <div class="p-3.5 bg-gradient-to-br from-rose-50 to-red-50/50 border border-rose-200 rounded-xl text-xs flex flex-col justify-between">
+                                <div>
+                                    <div class="flex items-center justify-between mb-1.5">
+                                        <span class="font-bold text-rose-900 flex items-center gap-1.5">
+                                            <span>▶️</span>
+                                            <span>YouTube Channel OAuth2</span>
+                                        </span>
+                                        @if(!empty($activeTenant?->youtube_access_token))
+                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-200 text-emerald-900">Connected</span>
+                                        @else
+                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-200 text-rose-900">Not Linked</span>
+                                        @endif
+                                    </div>
+                                    <p class="text-[11px] text-rose-800 mb-2">
+                                        {{ !empty($activeTenant?->youtube_access_token) ? 'Direct video upload enabled.' : 'Link channel for direct video publishing.' }}
+                                    </p>
+                                </div>
+                                <a href="{{ route('youtube.oauth') }}" class="w-full text-center py-1.5 px-2 rounded-lg text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition shadow-2xs">
+                                    {{ !empty($activeTenant?->youtube_access_token) ? '🔄 Reconnect YouTube' : '🔗 Connect YouTube Channel' }}
+                                </a>
+                            </div>
+                        </div>
+
                         <form action="{{ route('settings.api-keys.update') }}" method="POST" class="space-y-4">
                             @csrf
                             <!-- YouTube API Key -->

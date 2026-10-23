@@ -26,6 +26,9 @@ class SocialPublishController extends Controller
             'post_type' => 'required|in:video,reel,short,post',
             'media' => 'nullable|file|max:102400',
             'thumbnail' => 'nullable|image|max:10240',
+            'r2_video_url' => 'nullable|url|max:2048',
+            'r2_thumbnail_url' => 'nullable|url|max:2048',
+            'video_upload_id' => 'nullable|exists:video_uploads,id',
             'platforms' => 'required|array|min:1',
             'platforms.*' => 'in:facebook,youtube,instagram',
             'facebook_page_id' => 'nullable|exists:facebook_pages,id',
@@ -48,6 +51,13 @@ class SocialPublishController extends Controller
 
         $mediaFile = $request->file('media');
         $thumbnailFile = $request->file('thumbnail');
+
+        if (!empty($validated['r2_video_url'])) {
+            $post->media_path = $validated['r2_video_url'];
+        }
+        if (!empty($validated['r2_thumbnail_url'])) {
+            $post->thumbnail_path = $validated['r2_thumbnail_url'];
+        }
 
         $publishedPost = $this->socialPublishService->publishPost($post, $mediaFile, $thumbnailFile);
 
